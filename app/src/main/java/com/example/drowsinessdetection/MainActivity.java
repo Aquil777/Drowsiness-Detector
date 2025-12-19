@@ -5,6 +5,7 @@ import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.media.MediaPlayer;
 import android.os.Bundle;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
@@ -31,6 +32,8 @@ public class MainActivity extends AppCompatActivity {
     private ExecutorService cameraExecutor;
     private YuvToRgbConverter yuvConverter;
 
+    private DrowsinessDetector drowsinessDetector;
+
     @androidx.camera.core.ExperimentalGetImage
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -38,43 +41,65 @@ public class MainActivity extends AppCompatActivity {
 
         previewView = findViewById(R.id.previewView);
 
-        // Conversor YUV -> RGB (SEM CRASH)
+        drowsinessDetector = new DrowsinessDetector(this);
+
+        OverlayView overlayView = findViewById(R.id.overlayView);
+        overlayView.setBaselines(drowsinessDetector.getBaselineEAR(), drowsinessDetector.getBaselineMAR());
+
         yuvConverter = new YuvToRgbConverter(this);
 
-        // FaceMesh
+        // Inicializa FaceMeshProcessor
         faceMeshProcessor = new FaceMeshProcessor(this);
-        faceMeshProcessor.setLandmarksListener(
-                new FaceMeshProcessor.LandmarksListener() {
-                    @Override
-                    public void onLandmarks(NormalizedLandmarkList landmarks) {
-                        boolean drowsy = DrowsinessDetector.isDrowsy(landmarks);
+        faceMeshProcessor.setLandmarksListener(new FaceMeshProcessor.LandmarksListener() {
+            private boolean calibrationFinishedShown = false; // <<< declarada aqui
 
-                        if (drowsy) {
-                            if (!mediaPlayer.isPlaying()) {
-                                mediaPlayer.start();
-                            }
-                        } else {
-                            if (mediaPlayer.isPlaying()) {
-                                mediaPlayer.pause();
-                                mediaPlayer.seekTo(0);
-                            }
-                        }
+            @Override
+            public void onLandmarks(NormalizedLandmarkList landmarks) {
+                runOnUiThread(() -> overlayView.setLandmarks(landmarks));
+                if (!drowsinessDetector.isCalibrated()) {
+                    drowsinessDetector.calibrate(landmarks);
+
+                    runOnUiThread(() -> Toast.makeText(
+                            MainActivity.this,
+                            "Calibrando... Mantenha o rosto visível.",
+                            Toast.LENGTH_SHORT
+                    ).show());
+
+                    if (drowsinessDetector.isCalibrated() && !calibrationFinishedShown) {
+                        calibrationFinishedShown = true;
+                        runOnUiThread(() -> Toast.makeText(
+                                MainActivity.this,
+                                "Calibração concluída! Detector pronto.",
+                                Toast.LENGTH_SHORT
+                        ).show());
+                    }
+                    return; // sai do listener até a calibração acabar
+                }
+
+                // Código de verificação de sonolência
+                boolean drowsy = drowsinessDetector.isDrowsy(landmarks);
+                if (drowsy) {
+                    if (mediaPlayer != null && !mediaPlayer.isPlaying()) mediaPlayer.start();
+                } else {
+                    if (mediaPlayer != null && mediaPlayer.isPlaying()) {
+                        mediaPlayer.pause();
+                        mediaPlayer.seekTo(0);
                     }
                 }
-        );
+            }
+        });
+
 
         mediaPlayer = MediaPlayer.create(this, R.raw.alarm);
         cameraExecutor = Executors.newSingleThreadExecutor();
 
+        // Permissão da câmera
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
                 == PackageManager.PERMISSION_GRANTED) {
             startCamera();
         } else {
-            ActivityCompat.requestPermissions(
-                    this,
-                    new String[]{Manifest.permission.CAMERA},
-                    101
-            );
+            ActivityCompat.requestPermissions(this,
+                    new String[]{Manifest.permission.CAMERA}, 101);
         }
     }
 

@@ -1,159 +1,140 @@
 package com.example.drowsinessdetection;
 
+import android.content.Context;
+import android.content.SharedPreferences;
+import android.util.Log;
+
 import com.google.mediapipe.formats.proto.LandmarkProto.NormalizedLandmark;
 import com.google.mediapipe.formats.proto.LandmarkProto.NormalizedLandmarkList;
 
 public class DrowsinessDetector {
 
-    /* ============================
-       PARÂMETROS DE CONTROLO
-       ============================ */
+    private static final String TAG = "DROWSY";
+    private static final String PREF_NAME = "drowsy_prefs";
 
-    // Limite do Eye Aspect Ratio:
-    private static final double EAR_THRESHOLD = 0.22;
+    private static final String KEY_EAR = "baselineEAR";
+    private static final String KEY_MAR = "baselineMAR";
+    private static final String KEY_EAR_THRESHOLD = "earThreshold";
 
-    // Limite do Mouth Aspect Ratio:
-    private static final double MAR_THRESHOLD = 0.60;
+    private float baselineEAR = -1f;
+    private float baselineMAR = -1f;
+    private float earThreshold = 0.7f; // default inicial
+    private static final float MAR_THRESHOLD_RATIO = 1.5f;
 
-    // Limite de inclinação da cabeça (pitch):
-    private static final double PITCH_THRESHOLD = 0.15;
+    private static final int CALIBRATION_FRAMES = 30;
+    private int framesCounted = 0;
+    private float sumEAR = 0f;
+    private float sumMAR = 0f;
 
-    // Contador de frames consecutivos com olhos fechados
-    private static int closedEyeFrames = 0;
+    private boolean calibrated = false;
 
-    // Número mínimo de frames seguidos para considerar sonolência - ~15 frames ≈ 0.5s
-    private static final int EYE_FRAMES_LIMIT = 15;
+    private final SharedPreferences prefs;
 
-    /* ============================
-       MÉTODO PRINCIPAL
-       ============================ */
+    public DrowsinessDetector(Context context) {
+        prefs = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
 
-    /**
-     * Decide se o utilizador está sonolento com base nos landmarks
-     */
-    public static boolean isDrowsy(NormalizedLandmarkList lm) {
+        baselineEAR = prefs.getFloat(KEY_EAR, -1f);
+        baselineMAR = prefs.getFloat(KEY_MAR, -1f);
+        earThreshold = prefs.getFloat(KEY_EAR_THRESHOLD, 0.7f);
 
-        // Calcula EAR médio (olho esquerdo + direito)
-        double earLeft = computeEAR(lm, true);
-        double earRight = computeEAR(lm, false);
-        double ear = (earLeft + earRight) / 2.0;
+        calibrated = baselineEAR > 0 && baselineMAR > 0;
 
-        // Calcula abertura da boca
-        double mar = computeMAR(lm);
+        Log.d(TAG, calibrated
+                ? "Valores carregados: EAR=" + baselineEAR + " MAR=" + baselineMAR + " EAR Threshold=" + earThreshold
+                : "Nenhuma calibração encontrada");
+    }
 
-        // Calcula inclinação da cabeça
-        double pitch = computePitch(lm);
+    public void calibrate(NormalizedLandmarkList landmarks) {
+        float ear = calculateEAR(landmarks);
+        float mar = calculateMAR(landmarks);
 
-        /* ----------------------------
-           OLHOS FECHADOS
-           ---------------------------- */
+        sumEAR += ear;
+        sumMAR += mar;
+        framesCounted++;
 
-        // Se EAR abaixo do limite, conta frame
-        if (ear < EAR_THRESHOLD) {
-            closedEyeFrames++;
-        } else {
-            // Se abriu os olhos, reset
-            closedEyeFrames = 0;
+        Log.d(TAG, "Calibrando... EAR=" + ear + " MAR=" + mar);
+
+        if (framesCounted >= CALIBRATION_FRAMES) {
+            baselineEAR = sumEAR / CALIBRATION_FRAMES;
+            baselineMAR = sumMAR / CALIBRATION_FRAMES;
+
+            // Ajuste automático do threshold EAR
+            earThreshold = Math.max(0.75f, Math.min(0.85f, baselineEAR * 0.8f / baselineEAR)); // ajusta entre 0.75-0.85
+
+            calibrated = true;
+
+            prefs.edit()
+                    .putFloat(KEY_EAR, baselineEAR)
+                    .putFloat(KEY_MAR, baselineMAR)
+                    .putFloat(KEY_EAR_THRESHOLD, earThreshold)
+                    .apply();
+
+            Log.d(TAG, "Calibração concluída! EAR base=" + baselineEAR + " MAR base=" + baselineMAR + " EAR threshold=" + earThreshold);
         }
-
-        // Considera olhos fechados por tempo prolongado
-        boolean eyesClosedTooLong = closedEyeFrames > EYE_FRAMES_LIMIT;
-
-        /* ----------------------------
-           BOCEJO E CABEÇA CAÍDA
-           ---------------------------- */
-
-        boolean yawning = mar > MAR_THRESHOLD;
-        boolean headDown = pitch > PITCH_THRESHOLD;
-
-        /* ----------------------------
-           DECISÃO FINAL
-           ---------------------------- */
-
-        // Sonolento se QUALQUER condição for verdadeira
-        return eyesClosedTooLong || yawning || headDown;
     }
 
-    /* ============================
-       EAR – Eye Aspect Ratio
-       ============================ */
-
-    /**
-     * Calcula EAR para um olho específico
-     * @param left true = olho esquerdo, false = direito
-     */
-    private static double computeEAR(NormalizedLandmarkList lm, boolean left) {
-
-        // Índices oficiais do MediaPipe FaceMesh
-        int[] idx = left
-                ? new int[]{33, 160, 158, 133, 153, 144}   // olho esquerdo
-                : new int[]{362, 385, 387, 263, 373, 380}; // olho direito
-
-        // Pontos do olho
-        NormalizedLandmark p1 = lm.getLandmark(idx[0]); // canto esquerdo
-        NormalizedLandmark p2 = lm.getLandmark(idx[1]); // topo interno
-        NormalizedLandmark p3 = lm.getLandmark(idx[2]); // topo externo
-        NormalizedLandmark p4 = lm.getLandmark(idx[3]); // canto direito
-        NormalizedLandmark p5 = lm.getLandmark(idx[4]); // baixo externo
-        NormalizedLandmark p6 = lm.getLandmark(idx[5]); // baixo interno
-
-        // Distâncias verticais
-        double vertical1 = dist(p2, p6);
-        double vertical2 = dist(p3, p5);
-
-        // Distância horizontal
-        double horizontal = dist(p1, p4);
-
-        // Fórmula do EAR
-        return (vertical1 + vertical2) / (2.0 * horizontal);
+    public boolean isCalibrated() {
+        return calibrated;
     }
 
-    /* ============================
-       MAR – Mouth Aspect Ratio
-       ============================ */
-
-    /**
-     * Calcula abertura da boca (bocejo)
-     */
-    private static double computeMAR(NormalizedLandmarkList lm) {
-
-        NormalizedLandmark top = lm.getLandmark(13);    // lábio superior
-        NormalizedLandmark bottom = lm.getLandmark(14); // lábio inferior
-        NormalizedLandmark left = lm.getLandmark(78);   // canto esquerdo
-        NormalizedLandmark right = lm.getLandmark(308); // canto direito
-
-        double vertical = dist(top, bottom);
-        double horizontal = dist(left, right);
-
-        return vertical / horizontal;
+    public float getBaselineEAR() {
+        return baselineEAR;
     }
 
-    /* ============================
-       HEAD PITCH
-       ============================ */
-
-    /**
-     * Mede inclinação vertical da cabeça
-     */
-    private static double computePitch(NormalizedLandmarkList lm) {
-
-        NormalizedLandmark nose = lm.getLandmark(1);   // nariz
-        NormalizedLandmark chin = lm.getLandmark(152); // queixo
-
-        // Quanto maior a diferença, mais a cabeça está caída
-        return chin.getY() - nose.getY();
+    public float getBaselineMAR() {
+        return baselineMAR;
     }
 
-    /* ============================
-       DISTÂNCIA ENTRE DOIS PONTOS
-       ============================ */
 
-    /**
-     * Distância euclidiana entre dois landmarks normalizados
-     */
-    private static double dist(NormalizedLandmark a, NormalizedLandmark b) {
-        double dx = a.getX() - b.getX();
-        double dy = a.getY() - b.getY();
-        return Math.sqrt(dx * dx + dy * dy);
+    public boolean isDrowsy(NormalizedLandmarkList landmarks) {
+        if (!calibrated) return false;
+
+        float ear = calculateEAR(landmarks);
+        float mar = calculateMAR(landmarks);
+
+        Log.d(TAG, "EAR atual=" + ear + " | EAR base=" + baselineEAR + " | EAR threshold=" + (baselineEAR * earThreshold) +
+                " | MAR atual=" + mar + " | MAR base=" + baselineMAR);
+
+        boolean eyesClosed = ear < baselineEAR * earThreshold;
+        boolean yawning = mar > baselineMAR * MAR_THRESHOLD_RATIO;
+
+        return eyesClosed || yawning;
+    }
+
+    private float calculateEAR(NormalizedLandmarkList landmarks) {
+        int[] rightEye = {33, 160, 158, 133, 153, 144};
+        int[] leftEye = {362, 385, 387, 263, 373, 380};
+
+        return (computeEAR(landmarks, rightEye) + computeEAR(landmarks, leftEye)) / 2f;
+    }
+
+    private float computeEAR(NormalizedLandmarkList lm, int[] idx) {
+        NormalizedLandmark p1 = lm.getLandmark(idx[0]);
+        NormalizedLandmark p2 = lm.getLandmark(idx[1]);
+        NormalizedLandmark p3 = lm.getLandmark(idx[2]);
+        NormalizedLandmark p4 = lm.getLandmark(idx[3]);
+        NormalizedLandmark p5 = lm.getLandmark(idx[4]);
+        NormalizedLandmark p6 = lm.getLandmark(idx[5]);
+
+        float v1 = distance(p2, p5);
+        float v2 = distance(p3, p6);
+        float h = distance(p1, p4);
+
+        return (v1 + v2) / (2f * h);
+    }
+
+    private float calculateMAR(NormalizedLandmarkList landmarks) {
+        NormalizedLandmark top = landmarks.getLandmark(13);
+        NormalizedLandmark bottom = landmarks.getLandmark(14);
+        NormalizedLandmark left = landmarks.getLandmark(61);
+        NormalizedLandmark right = landmarks.getLandmark(291);
+
+        return distance(top, bottom) / distance(left, right);
+    }
+
+    private float distance(NormalizedLandmark a, NormalizedLandmark b) {
+        float dx = a.getX() - b.getX();
+        float dy = a.getY() - b.getY();
+        return (float) Math.sqrt(dx * dx + dy * dy);
     }
 }
