@@ -30,6 +30,9 @@ public class DrowsinessDetector {
 
     private final SharedPreferences prefs;
 
+    private static final int DROWSY_FRAMES_REQUIRED = 15; // ~0.5s a 30fps
+    private int drowsyFrameCount = 0;
+
     public DrowsinessDetector(Context context) {
         prefs = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
 
@@ -92,14 +95,29 @@ public class DrowsinessDetector {
         float ear = calculateEAR(landmarks);
         float mar = calculateMAR(landmarks);
 
-        Log.d(TAG, "EAR atual=" + ear + " | EAR base=" + baselineEAR + " | EAR threshold=" + (baselineEAR * earThreshold) +
-                " | MAR atual=" + mar + " | MAR base=" + baselineMAR);
-
         boolean eyesClosed = ear < baselineEAR * earThreshold;
         boolean yawning = mar > baselineMAR * MAR_THRESHOLD_RATIO;
 
-        return eyesClosed || yawning;
+        if (eyesClosed || yawning) {
+            drowsyFrameCount++;
+        } else {
+            drowsyFrameCount = 0;
+        }
+
+        Log.d(TAG,
+                "EAR=" + ear +
+                        " | MAR=" + mar +
+                        " | frames=" + drowsyFrameCount
+        );
+
+        Log.d(TAG, "EAR atual=" + ear + " | EAR base=" +
+                baselineEAR + " | EAR threshold=" + (baselineEAR * earThreshold) +
+                " | MAR atual=" + mar + " | MAR base=" + baselineMAR +
+                " | frames=" + drowsyFrameCount);
+
+        return drowsyFrameCount >= DROWSY_FRAMES_REQUIRED;
     }
+
 
     private float calculateEAR(NormalizedLandmarkList landmarks) {
         int[] rightEye = {33, 160, 158, 133, 153, 144};
