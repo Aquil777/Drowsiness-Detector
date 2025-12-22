@@ -44,39 +44,60 @@ public class MainActivity extends AppCompatActivity {
         drowsinessDetector = new DrowsinessDetector(this);
 
         OverlayView overlayView = findViewById(R.id.overlayView);
-        overlayView.setBaselines(drowsinessDetector.getBaselineEAR(), drowsinessDetector.getBaselineMAR());
 
         yuvConverter = new YuvToRgbConverter(this);
 
         // Inicializa FaceMeshProcessor
         faceMeshProcessor = new FaceMeshProcessor(this);
         faceMeshProcessor.setLandmarksListener(new FaceMeshProcessor.LandmarksListener() {
-            private boolean calibrationFinishedShown = false; // <<< declarada aqui
+            private boolean calibrationFinishedShown = false;
 
             @Override
             public void onLandmarks(NormalizedLandmarkList landmarks) {
                 runOnUiThread(() -> overlayView.setLandmarks(landmarks));
-                if (!drowsinessDetector.isCalibrated()) {
-                    drowsinessDetector.calibrate(landmarks);
 
+                // --- CALIBRAÇÃO ---
+                if (!drowsinessDetector.isOpenEyesCalibrated()) {
+                    drowsinessDetector.calibrateOpenEyes(landmarks);
                     runOnUiThread(() -> Toast.makeText(
                             MainActivity.this,
-                            "Calibrando... Mantenha o rosto visível.",
+                            "Calibrando olhos abertos... Mantenha o rosto visível e olhos abertos.",
                             Toast.LENGTH_SHORT
                     ).show());
-
-                    if (drowsinessDetector.isCalibrated() && !calibrationFinishedShown) {
-                        calibrationFinishedShown = true;
-                        runOnUiThread(() -> Toast.makeText(
-                                MainActivity.this,
-                                "Calibração concluída! Detector pronto.",
-                                Toast.LENGTH_SHORT
-                        ).show());
-                    }
-                    return; // sai do listener até a calibração acabar
+                    return;
                 }
 
-                // Código de verificação de sonolência
+                if (!drowsinessDetector.isClosedEyesCalibrated()) {
+                    drowsinessDetector.calibrateClosedEyes(landmarks);
+                    runOnUiThread(() -> Toast.makeText(
+                            MainActivity.this,
+                            "Calibrando olhos fechados... Feche os olhos até ouvir o beep.",
+                            Toast.LENGTH_SHORT
+                    ).show());
+                    return;
+                }
+
+                if (!drowsinessDetector.isYawnCalibrated()) {
+                    drowsinessDetector.calibrateYawn(landmarks);
+                    runOnUiThread(() -> Toast.makeText(
+                            MainActivity.this,
+                            "Calibrando bocejo... Abra a boca quando solicitado.",
+                            Toast.LENGTH_SHORT
+                    ).show());
+                    return;
+                }
+
+                // --- CALIBRAÇÃO CONCLUÍDA ---
+                if (drowsinessDetector.isFullyCalibrated() && !calibrationFinishedShown) {
+                    calibrationFinishedShown = true;
+                    runOnUiThread(() -> Toast.makeText(
+                            MainActivity.this,
+                            "Calibração concluída! Detector pronto.",
+                            Toast.LENGTH_SHORT
+                    ).show());
+                }
+
+                // --- VERIFICAÇÃO DE SONOLÊNCIA ---
                 boolean drowsy = drowsinessDetector.isDrowsy(landmarks);
                 if (drowsy) {
                     if (mediaPlayer != null && !mediaPlayer.isPlaying()) mediaPlayer.start();
