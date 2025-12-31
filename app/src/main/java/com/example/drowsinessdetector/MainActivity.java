@@ -1,0 +1,154 @@
+package com.example.drowsinessdetector;
+
+import android.Manifest;
+import android.content.pm.PackageManager;
+import android.graphics.Bitmap;
+import android.media.MediaPlayer;
+import android.os.Bundle;
+import android.widget.TextView;
+import androidx.annotation.NonNull;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.camera.core.CameraSelector;
+import androidx.camera.core.ImageAnalysis;
+import androidx.camera.core.Preview;
+import androidx.camera.lifecycle.ProcessCameraProvider;
+import androidx.camera.view.PreviewView;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+
+public class MainActivity extends AppCompatActivity {
+    private PreviewView viewFinder;
+    private TextView tvStatus;
+    private FatigueClassifier classifier;
+    private ExecutorService cameraExecutor;
+    private MediaPlayer mediaPlayer;
+    private boolean isAlarmPlaying = false;
+    private int fatigueCounter = 0; // Contador de frames de fadiga
+    private final int FATIGUE_THRESHOLD_FRAMES = 3; // Precisamos de 4 frames seguidos
+    private long fatigueStartTime = 0; // Marca quando a fadiga começou
+    private final long FATIGUE_DURATION_THRESHOLD = 500; // 500ms (ajustável)
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main);
+
+        // Inicializa o som (alarm.wav está em res/raw)
+        mediaPlayer = MediaPlayer.create(this, R.raw.alarm);
+        mediaPlayer.setLooping(true); // Toca sem parar se a fadiga continuar
+
+        viewFinder = findViewById(R.id.viewFinder);
+        tvStatus = findViewById(R.id.tvStatus);
+
+        if (allPermissionsGranted()) {
+            startCamera();
+        } else {
+            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.CAMERA}, 10);
+        }
+
+        try {
+            classifier = new FatigueClassifier(this);
+        } catch (Exception e) { e.printStackTrace(); }
+
+        cameraExecutor = Executors.newSingleThreadExecutor();
+    }
+
+    private void startCamera() {
+        ProcessCameraProvider.getInstance(this).addListener(() -> {
+            try {
+                ProcessCameraProvider cameraProvider = ProcessCameraProvider.getInstance(this).get();
+                Preview preview = new Preview.Builder().build();
+                preview.setSurfaceProvider(viewFinder.getSurfaceProvider());
+
+                ImageAnalysis imageAnalysis = new ImageAnalysis.Builder()
+                        .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                        .build();
+
+                imageAnalysis.setAnalyzer(cameraExecutor, image -> {
+                    runOnUiThread(() -> {
+                        Bitmap bitmap = viewFinder.getBitmap();
+                        if (bitmap != null) {
+                            // MELHORIA 2: ROI - Em vez de usar a imagem toda,
+                            // vamos focar no centro onde o rosto costuma estar.
+                            Bitmap croppedBitmap = centerCrop(bitmap);
+
+                            float result = classifier.analyzeImage(croppedBitmap);
+                            updateUI(result);
+                        }
+                    });
+                    image.close();
+                });
+
+                cameraProvider.bindToLifecycle(this, CameraSelector.DEFAULT_FRONT_CAMERA, preview, imageAnalysis);
+            } catch (Exception e) { e.printStackTrace(); }
+        }, ContextCompat.getMainExecutor(this));
+    }
+
+    private void updateUI(float result) {
+        // Threshold de confiança do modelo (0.60 conforme sua nota)
+        if (result > 0.60f) {
+            if (fatigueStartTime == 0) {
+                fatigueStartTime = System.currentTimeMillis(); // Inicia o cronômetro
+            }
+        } else {
+            fatigueStartTime = 0; // Reseta se o motorista abriu os olhos
+        }
+
+        // MELHORIA 1: Verifica se o tempo decorrido excedeu o limite (ex: 500ms)
+        long duration = (fatigueStartTime == 0) ? 0 : (System.currentTimeMillis() - fatigueStartTime);
+
+        if (duration >= FATIGUE_DURATION_THRESHOLD) {
+            tvStatus.setText("⚠️ FADIGA DETETADA!\n" + duration + "ms");
+            tvStatus.setBackgroundColor(getColor(android.R.color.holo_red_dark));
+            startAlarm();
+        } else {
+            tvStatus.setText("✅ MOTORISTA ATENTO");
+            tvStatus.setBackgroundColor(getColor(android.R.color.holo_green_dark));
+            stopAlarm();
+        }
+    }
+
+    private Bitmap centerCrop(Bitmap srcBmp) {
+        int width = srcBmp.getWidth();
+        int height = srcBmp.getHeight();
+        int newEdge = Math.min(width, height); // Cria um quadrado
+
+        // Recorta o centro da imagem (onde o rosto do motorista deve estar)
+        return Bitmap.createBitmap(
+                srcBmp,
+                (width - newEdge) / 2,
+                (height - newEdge) / 2,
+                newEdge,
+                newEdge
+        );
+    }
+
+    private void startAlarm() {
+        if (!isAlarmPlaying) {
+            mediaPlayer.start();
+            isAlarmPlaying = true;
+        }
+    }
+
+    private void stopAlarm() {
+        if (isAlarmPlaying) {
+            mediaPlayer.pause();
+            mediaPlayer.seekTo(0); // Volta ao início para a próxima vez
+            isAlarmPlaying = false;
+        }
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        if (mediaPlayer != null) {
+            mediaPlayer.release(); // Liberta a memória ao fechar a app
+        }
+    }
+
+    private boolean allPermissionsGranted() {
+        return ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED;
+    }
+}
