@@ -5,6 +5,7 @@ import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.media.MediaPlayer;
 import android.os.Bundle;
+import android.widget.SeekBar;
 import android.widget.TextView;
 import android.util.Log;
 import androidx.annotation.NonNull;
@@ -30,6 +31,7 @@ public class MainActivity extends AppCompatActivity {
     private final int FATIGUE_THRESHOLD_FRAMES = 3; // Precisamos de 4 frames seguidos
     private long fatigueStartTime = 0; // Marca quando a fadiga começou
     private final long FATIGUE_DURATION_THRESHOLD = 500; // 500ms (ajustável)
+    private float sensitivityThreshold = 0.60f; // Variável dinâmica
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -54,6 +56,19 @@ public class MainActivity extends AppCompatActivity {
         } catch (Exception e) { e.printStackTrace(); }
 
         cameraExecutor = Executors.newSingleThreadExecutor();
+
+        SeekBar sbSensitivity = findViewById(R.id.sbSensitivity);
+        TextView tvSensitivityLabel = findViewById(R.id.tvSensitivityLabel);
+
+        sbSensitivity.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            @Override
+            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+                sensitivityThreshold = progress / 100f; // Converte 60 para 0.60
+                tvSensitivityLabel.setText(String.format("Sensibilidade: %.2f", sensitivityThreshold));
+            }
+            @Override public void onStartTrackingTouch(SeekBar seekBar) {}
+            @Override public void onStopTrackingTouch(SeekBar seekBar) {}
+        });
     }
 
     private void startCamera() {
@@ -88,33 +103,42 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void updateUI(float result) {
-        // Threshold de confiança do modelo (0.60 conforme sua nota)
-        if (result > 0.60f) {
-            if (fatigueStartTime == 0) {
-                fatigueStartTime = System.currentTimeMillis(); // Inicia o cronômetro
-            }
+
+        // Agora usamos a variável sensitivityThreshold da barra!
+        if (result > sensitivityThreshold) {
+            if (fatigueStartTime == 0) fatigueStartTime = System.currentTimeMillis();
         } else {
-            fatigueStartTime = 0; // Reseta se o motorista abriu os olhos
+            fatigueStartTime = 0;
         }
 
-        // MELHORIA 1: Verifica se o tempo decorrido excedeu o limite (ex: 500ms)
-        long duration = (fatigueStartTime == 0) ? 0 : (System.currentTimeMillis() - fatigueStartTime);
+        long duration = (fatigueStartTime == 0)
+                ? 0
+                : (System.currentTimeMillis() - fatigueStartTime);
 
-        // ADICIONE ESTA LINHA:
-        if (duration > 0) {
-            Log.d("FADIGA_LOG", "Duração atual da fadiga: " + duration + "ms | Score: " + result);
-        }
+        // 👉 Texto base com o SCORE do modelo
+        String scoreText = String.format("Score do modelo: %.3f", result);
 
         if (duration >= FATIGUE_DURATION_THRESHOLD) {
-            tvStatus.setText("⚠️ FADIGA DETETADA!\n" + duration + "ms");
+            tvStatus.setText(
+                    "⚠️ FADIGA DETETADA\n" +
+                            scoreText + "\n" +
+                            "Tempo: " + duration + " ms"
+            );
             tvStatus.setBackgroundColor(getColor(android.R.color.holo_red_dark));
             startAlarm();
         } else {
-            tvStatus.setText("✅ MOTORISTA ATENTO");
+            tvStatus.setText(
+                    "✅ MOTORISTA ATENTO\n" +
+                            scoreText
+            );
             tvStatus.setBackgroundColor(getColor(android.R.color.holo_green_dark));
             stopAlarm();
         }
+
+        // Log opcional (debug)
+        Log.d("FADIGA_LOG", "Score: " + result + " | Duração: " + duration);
     }
+
 
     private Bitmap centerCrop(Bitmap srcBmp) {
         int width = srcBmp.getWidth();

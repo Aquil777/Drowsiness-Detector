@@ -79,11 +79,17 @@ public class FatigueClassifier {
         bitmap.getPixels(pixels, 0, INPUT_SIZE, 0, 0, INPUT_SIZE, INPUT_SIZE);
 
         for (int pixel : pixels) {
-            byteBuffer.putFloat(((pixel >> 16) & 0xFF) / 255f);
-            byteBuffer.putFloat(((pixel >> 8) & 0xFF) / 255f);
-            byteBuffer.putFloat((pixel & 0xFF) / 255f);
-        }
+            // Extrai os canais
+            float r = ((pixel >> 16) & 0xFF);
+            float g = ((pixel >> 8) & 0xFF);
+            float b = (pixel & 0xFF);
 
+            // MELHORIA DE LUMINOSIDADE: Normalização Simples (0-1)
+            // Se a imagem estiver muito escura, você poderia aplicar um ganho aqui
+            byteBuffer.putFloat(r / 255.0f);
+            byteBuffer.putFloat(g / 255.0f);
+            byteBuffer.putFloat(b / 255.0f);
+        }
         return byteBuffer;
     }
 
