@@ -6,6 +6,7 @@ import android.graphics.Bitmap;
 import android.media.MediaPlayer;
 import android.os.Bundle;
 import android.widget.TextView;
+import android.util.Log;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.camera.core.CameraSelector;
@@ -98,6 +99,11 @@ public class MainActivity extends AppCompatActivity {
 
         // MELHORIA 1: Verifica se o tempo decorrido excedeu o limite (ex: 500ms)
         long duration = (fatigueStartTime == 0) ? 0 : (System.currentTimeMillis() - fatigueStartTime);
+
+        // ADICIONE ESTA LINHA:
+        if (duration > 0) {
+            Log.d("FADIGA_LOG", "Duração atual da fadiga: " + duration + "ms | Score: " + result);
+        }
 
         if (duration >= FATIGUE_DURATION_THRESHOLD) {
             tvStatus.setText("⚠️ FADIGA DETETADA!\n" + duration + "ms");

@@ -66,6 +66,8 @@ public class FatigueClassifier {
 
         float[][] output = new float[1][1];
         interpreter.run(buffer, output);
+
+        Log.d(TAG, "Resultado da Inferência: " + output[0][0]);
         return output[0][0];
     }
 
