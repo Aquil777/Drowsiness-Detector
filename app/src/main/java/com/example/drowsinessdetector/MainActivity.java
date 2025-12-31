@@ -144,8 +144,12 @@ public class MainActivity extends AppCompatActivity {
     protected void onDestroy() {
         super.onDestroy();
         if (mediaPlayer != null) {
-            mediaPlayer.release(); // Liberta a memória ao fechar a app
+            mediaPlayer.release();
         }
+        if (classifier != null) {
+            classifier.close(); // Fecha o interpretador e a GPU
+        }
+        cameraExecutor.shutdown(); // Para a thread da câmera
     }
 
     private boolean allPermissionsGranted() {
