@@ -5,6 +5,8 @@ import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.media.MediaPlayer;
 import android.os.Bundle;
+import android.widget.ImageView;
+import android.widget.ProgressBar;
 import android.widget.SeekBar;
 import android.widget.TextView;
 import android.util.Log;
@@ -32,6 +34,7 @@ public class MainActivity extends AppCompatActivity {
     private long fatigueStartTime = 0; // Marca quando a fadiga começou
     private final long FATIGUE_DURATION_THRESHOLD = 500; // 500ms (ajustável)
     private float sensitivityThreshold = 0.60f; // Variável dinâmica
+    private ImageView ivDebugCrop;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -63,11 +66,46 @@ public class MainActivity extends AppCompatActivity {
         sbSensitivity.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override
             public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
-                sensitivityThreshold = progress / 100f; // Converte 60 para 0.60
-                tvSensitivityLabel.setText(String.format("Sensibilidade: %.2f", sensitivityThreshold));
+                sensitivityThreshold = progress / 100f;
+
+                String label = "PADRÃO";
+                if (progress < 40) label = "RELAXADO (Menos alarmes)";
+                else if (progress > 75) label = "RIGOROSO (Uso noturno)";
+
+                tvSensitivityLabel.setText("Ajuste de Rigor: " + label);
             }
             @Override public void onStartTrackingTouch(SeekBar seekBar) {}
             @Override public void onStopTrackingTouch(SeekBar seekBar) {}
+        });
+
+        // Dentro do onCreate
+        ivDebugCrop = findViewById(R.id.ivDebugCrop);
+
+        ivDebugCrop.setOnTouchListener(new android.view.View.OnTouchListener() {
+            float dX, dY;
+
+            @Override
+            public boolean onTouch(android.view.View view, android.view.MotionEvent event) {
+                switch (event.getAction()) {
+                    case android.view.MotionEvent.ACTION_DOWN:
+                        // Guarda a distância entre o toque e a borda da imagem
+                        dX = view.getX() - event.getRawX();
+                        dY = view.getY() - event.getRawY();
+                        break;
+
+                    case android.view.MotionEvent.ACTION_MOVE:
+                        // Move a imagem mantendo a posição relativa ao dedo
+                        view.animate()
+                                .x(event.getRawX() + dX)
+                                .y(event.getRawY() + dY)
+                                .setDuration(0)
+                                .start();
+                        break;
+                    default:
+                        return false;
+                }
+                return true;
+            }
         });
     }
 
@@ -86,9 +124,11 @@ public class MainActivity extends AppCompatActivity {
                     runOnUiThread(() -> {
                         Bitmap bitmap = viewFinder.getBitmap();
                         if (bitmap != null) {
-                            // MELHORIA 2: ROI - Em vez de usar a imagem toda,
-                            // vamos focar no centro onde o rosto costuma estar.
+                            // Este é o recorte que vai para o modelo
                             Bitmap croppedBitmap = centerCrop(bitmap);
+
+                            // MOSTRA O RECORTE NO ECRÃ PARA TESTE
+                            ivDebugCrop.setImageBitmap(croppedBitmap);
 
                             float result = classifier.analyzeImage(croppedBitmap);
                             updateUI(result);
@@ -103,40 +143,42 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void updateUI(float result) {
+        ProgressBar pbLiveScore = findViewById(R.id.pbLiveScore);
+        pbLiveScore.setProgress((int)(result * 100));
 
-        // Agora usamos a variável sensitivityThreshold da barra!
+        // Lógica de sensibilidade
         if (result > sensitivityThreshold) {
             if (fatigueStartTime == 0) fatigueStartTime = System.currentTimeMillis();
         } else {
             fatigueStartTime = 0;
         }
 
-        long duration = (fatigueStartTime == 0)
-                ? 0
-                : (System.currentTimeMillis() - fatigueStartTime);
+        long duration = (fatigueStartTime == 0) ? 0 : (System.currentTimeMillis() - fatigueStartTime);
 
-        // 👉 Texto base com o SCORE do modelo
-        String scoreText = String.format("Score do modelo: %.3f", result);
+        // CRIAMOS UMA STRING COM O SCORE PARA REUTILIZAR
+        String msgScore = String.format("Score: %.3f", result);
 
         if (duration >= FATIGUE_DURATION_THRESHOLD) {
-            tvStatus.setText(
-                    "⚠️ FADIGA DETETADA\n" +
-                            scoreText + "\n" +
-                            "Tempo: " + duration + " ms"
-            );
+            // ESTADO: FADIGA (Mostra a mensagem + o score + o tempo de olho fechado)
+            tvStatus.setText("⚠️ FADIGA DETETADA!\n" + msgScore + "\nTempo: " + duration + "ms");
             tvStatus.setBackgroundColor(getColor(android.R.color.holo_red_dark));
+
+            ivDebugCrop.setBackgroundColor(android.graphics.Color.RED);
             startAlarm();
         } else {
-            tvStatus.setText(
-                    "✅ MOTORISTA ATENTO\n" +
-                            scoreText
-            );
+            // ESTADO: ATENTO (Mostra a mensagem + o score)
+            tvStatus.setText("✅ MOTORISTA ATENTO\n" + msgScore);
             tvStatus.setBackgroundColor(getColor(android.R.color.holo_green_dark));
+
+            // Feedback visual no quadrado de debug
+            if (result > (sensitivityThreshold * 0.7)) {
+                ivDebugCrop.setBackgroundColor(android.graphics.Color.YELLOW);
+            } else {
+                ivDebugCrop.setBackgroundColor(android.graphics.Color.GREEN);
+            }
+
             stopAlarm();
         }
-
-        // Log opcional (debug)
-        Log.d("FADIGA_LOG", "Score: " + result + " | Duração: " + duration);
     }
 
 
