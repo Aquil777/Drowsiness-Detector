@@ -61,13 +61,18 @@ public class FatigueClassifier {
     }
 
     public float analyzeImage(Bitmap bitmap) {
+        long startTime = System.currentTimeMillis(); // Início
+
         Bitmap resized = Bitmap.createScaledBitmap(bitmap, INPUT_SIZE, INPUT_SIZE, true);
         ByteBuffer buffer = convertBitmapToByteBuffer(resized);
 
         float[][] output = new float[1][1];
         interpreter.run(buffer, output);
 
-        Log.d(TAG, "Resultado da Inferência: " + output[0][0]);
+        long endTime = System.currentTimeMillis(); // Fim
+        long inferenceTime = endTime - startTime;
+
+        Log.d(TAG, "Inferência: " + output[0][0] + " | Tempo: " + inferenceTime + "ms");
         return output[0][0];
     }
 
