@@ -67,7 +67,6 @@
                 android:progress="0"
                 android:progressTint="#FFEB3B" />
         </LinearLayout>
-
     </androidx.constraintlayout.widget.ConstraintLayout>
 
     <LinearLayout
@@ -84,30 +83,12 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Ajustes de Segurança"
+            android:text="Configurações"
             android:textColor="#FFFFFF"
-            android:textSize="22sp"
+            android:textSize="28sp"
             android:textStyle="bold"
-            android:layout_marginTop="40dp"/>
-
-        <ImageView
-            android:id="@+id/ivDebugCrop"
-            android:layout_width="140dp"
-            android:layout_height="140dp"
-            android:layout_gravity="center"
-            android:layout_marginTop="30dp"
-            android:background="#333333"
-            android:padding="2dp"
-            android:scaleType="centerCrop"/>
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Verifica se o teu rosto está centrado"
-            android:textColor="#888888"
-            android:textSize="12sp"
-            android:layout_gravity="center"
-            android:layout_marginTop="8dp"/>
+            android:layout_marginTop="20dp"
+            android:layout_marginBottom="32dp"/>
 
         <TextView
             android:id="@+id/tvSensitivityLabel"
@@ -115,40 +96,73 @@
             android:layout_height="wrap_content"
             android:text="Rigor da IA: PADRÃO (0.60)"
             android:textColor="#FFEB3B"
-            android:layout_marginTop="40dp"
             android:textStyle="bold" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Define o nível de tolerância. No modo Relaxado (valor alto), o alarme só dispara com uma certeza maior da IA."
+            android:textColor="#BBBBBB"
+            android:textSize="12sp"
+            android:layout_marginTop="4dp" />
 
         <SeekBar
             android:id="@+id/sbSensitivity"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="12dp"
+            android:layout_marginBottom="30dp"
             android:max="100"
             android:progress="60"
             android:thumbTint="#FFFFFF" />
 
-        <Switch
-            android:id="@+id/switchVoiceMode"
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="30dp"
-            android:text="Alertas por Voz"
-            android:textColor="#FFFFFF"
-            android:textSize="16sp"
-            android:thumbTint="#FFEB3B"/>
+            android:orientation="horizontal"
+            android:background="#1E1E1E"
+            android:padding="16dp"
+            android:gravity="center_vertical">
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical">
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Alertas por Voz"
+                    android:textColor="#FFFFFF"
+                    android:textSize="18sp"
+                    android:textStyle="bold"/>
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Substitui o bipe do alarme por frases de alerta faladas pela IA."
+                    android:textColor="#BBBBBB"
+                    android:textSize="12sp"/>
+            </LinearLayout>
+
+            <Switch
+                android:id="@+id/switchVoiceMode"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:thumbTint="#FFEB3B"/>
+        </LinearLayout>
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="24dp"
+            android:text="Nota: Para um melhor funcionamento, garanta que o rosto está bem iluminado."
+            android:textColor="#888888"
+            android:textSize="11sp"
+            android:gravity="center"
+            android:fontStyle="italic"/>
 
     </LinearLayout>
-
-    <com.google.android.material.bottomnavigation.BottomNavigationView
-        android:id="@+id/bottomNavigation"
-        android:layout_width="match_parent"
-        android:layout_height="64dp"
-        android:background="#1E1E1E"
-        app:itemIconTint="#FFFFFF"
-        app:itemTextColor="#FFFFFF"
-        app:menu="@menu/bottom_nav_menu"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:labelVisibilityMode="unlabeled" />
 
     <LinearLayout
         android:id="@+id/layoutHistory"
@@ -172,7 +186,7 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Relatórios de Viagem"
+            android:text="Relatórios"
             android:textColor="#FFFFFF"
             android:textSize="20sp"
             android:textStyle="bold" />
@@ -180,12 +194,33 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Esta funcionalidade estará disponível em breve.\nAqui poderás consultar gráficos de fadiga das tuas últimas conduções."
+            android:text="Em desenvolvimento..."
             android:textColor="#888888"
             android:textSize="14sp"
-            android:gravity="center"
             android:layout_marginTop="8dp"/>
-
     </LinearLayout>
+
+    <ImageView
+        android:id="@+id/ivDebugCrop"
+        android:layout_width="110dp"
+        android:layout_height="110dp"
+        android:layout_margin="16dp"
+        android:background="#FF0000"
+        android:padding="2dp"
+        android:scaleType="centerCrop"
+        android:elevation="10dp"
+        app:layout_constraintBottom_toTopOf="@id/bottomNavigation"
+        app:layout_constraintEnd_toEndOf="parent" />
+
+    <com.google.android.material.bottomnavigation.BottomNavigationView
+        android:id="@+id/bottomNavigation"
+        android:layout_width="match_parent"
+        android:layout_height="64dp"
+        android:background="#1E1E1E"
+        app:itemIconTint="#FFFFFF"
+        app:itemTextColor="#FFFFFF"
+        app:menu="@menu/bottom_nav_menu"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:labelVisibilityMode="unlabeled" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>

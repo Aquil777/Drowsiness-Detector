@@ -7,6 +7,7 @@ import android.graphics.Bitmap;
 import android.media.MediaPlayer;
 import android.os.Bundle;
 import android.speech.tts.TextToSpeech;
+import android.view.View;
 import android.view.WindowManager;
 import android.widget.ImageView;
 import android.widget.ProgressBar;
@@ -38,7 +39,7 @@ public class MainActivity extends AppCompatActivity {
     private final int FATIGUE_THRESHOLD_FRAMES = 3; // Precisamos de 4 frames seguidos
     private long fatigueStartTime = 0; // Marca quando a fadiga começou
     private final long FATIGUE_DURATION_THRESHOLD = 500; // 500ms (ajustável)
-    private float sensitivityThreshold = 0.60f; // Variável dinâmica
+    private float confidenceThreshold = 0.60f; // Variável dinâmica
     private ImageView ivDebugCrop;
     private TextToSpeech tts;
     private boolean useVoiceAlerts = false;
@@ -68,14 +69,18 @@ public class MainActivity extends AppCompatActivity {
         bottomNav.setOnItemSelectedListener(item -> {
             int id = item.getItemId();
 
-            // Esconde todos
+            // Reset de visibilidade de todos os layouts
             layoutMonitoring.setVisibility(android.view.View.GONE);
             layoutSettings.setVisibility(android.view.View.GONE);
             layoutHistory.setVisibility(android.view.View.GONE);
 
-            // Mostra apenas o selecionado
+            // O frame de debug por padrão fica escondido
+            ivDebugCrop.setVisibility(android.view.View.GONE);
+
             if (id == R.id.nav_monitoring) {
                 layoutMonitoring.setVisibility(android.view.View.VISIBLE);
+                // Só aparece na aba de Condução
+                ivDebugCrop.setVisibility(android.view.View.VISIBLE);
             } else if (id == R.id.nav_history) {
                 layoutHistory.setVisibility(android.view.View.VISIBLE);
             } else if (id == R.id.nav_settings) {
@@ -112,11 +117,21 @@ public class MainActivity extends AppCompatActivity {
         sbSensitivity.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override
             public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
-                sensitivityThreshold = progress / 100f;
-                String categoria = "PADRÃO";
-                if (progress < 40) categoria = "RELAXADO";
-                else if (progress > 75) categoria = "RIGOROSO";
-                tvSensitivityLabel.setText(String.format("Ajuste de Rigor: %s (%.2f)", categoria, sensitivityThreshold));
+                confidenceThreshold = progress / 100f;
+                String categoria;
+
+                // Se o valor é BAIXO (ex: 0.20), a IA dispara com pouca prova -> Sistema Nervoso/Rigoroso
+                // Se o valor é ALTO (ex: 0.85), a IA só dispara com prova total -> Sistema Relaxado/Permissivo
+
+                if (progress < 35) {
+                    categoria = "RIGOROSO";   // Toca muito facilmente, quase sem tolerância.
+                } else if (progress > 75) {
+                    categoria = "RELAXADO";   // Só toca se tiver certeza absoluta (evita falsos alarmes).
+                } else {
+                    categoria = "EQUILIBRADO"; // O meio termo ideal.
+                }
+
+                tvSensitivityLabel.setText(String.format("Modo: %s (%.2f)", categoria, confidenceThreshold));
             }
             @Override public void onStartTrackingTouch(SeekBar seekBar) {}
             @Override public void onStopTrackingTouch(SeekBar seekBar) {}
@@ -228,7 +243,7 @@ public class MainActivity extends AppCompatActivity {
         pbLiveScore.setProgress((int)(result * 100));
 
         // Lógica de sensibilidade
-        if (result > sensitivityThreshold) {
+        if (result > confidenceThreshold) {
             if (fatigueStartTime == 0) fatigueStartTime = System.currentTimeMillis();
         } else {
             fatigueStartTime = 0;
@@ -252,7 +267,7 @@ public class MainActivity extends AppCompatActivity {
             tvStatus.setBackgroundColor(getColor(android.R.color.holo_green_dark));
 
             // Feedback visual no quadrado de debug
-            if (result > (sensitivityThreshold * 0.7)) {
+            if (result > (confidenceThreshold * 0.7)) {
                 ivDebugCrop.setBackgroundColor(android.graphics.Color.YELLOW);
             } else {
                 ivDebugCrop.setBackgroundColor(android.graphics.Color.GREEN);
@@ -261,7 +276,6 @@ public class MainActivity extends AppCompatActivity {
             stopAlarm();
         }
     }
-
 
     private Bitmap centerCrop(Bitmap srcBmp) {
         int width = srcBmp.getWidth();
