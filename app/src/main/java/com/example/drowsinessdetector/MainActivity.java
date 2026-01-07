@@ -171,6 +171,24 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    // Este método é chamado automaticamente quando o usuário clica em "Permitir" ou "Negar"
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+
+        if (requestCode == 10) {
+            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                // SUCESSO: O usuário deu permissão.
+                // Aguardamos 500ms para o sistema processar a permissão antes de ligar a câmera.
+                new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(this::startCamera, 500);
+            } else {
+                // FALHA: O usuário negou.
+                android.widget.Toast.makeText(this, "A câmara é necessária para detetar fadiga.", android.widget.Toast.LENGTH_LONG).show();
+                finish(); // Fecha o app pois ele não funciona sem câmera
+            }
+        }
+    }
+
     @Override
     protected void onResume() {
         super.onResume();
