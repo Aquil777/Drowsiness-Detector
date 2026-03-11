@@ -53,4 +53,5 @@ dependencies {
 
     // ML Kit (Para detetar o rosto antes de analisar a fadiga)
     implementation 'com.google.mlkit:face-detection:16.1.5'
+    implementation 'com.google.code.gson:gson:2.10.1'
 }
