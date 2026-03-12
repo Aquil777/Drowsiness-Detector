@@ -40,6 +40,11 @@ import androidx.core.content.ContextCompat;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.android.material.button.MaterialButton;
 
+import android.animation.ObjectAnimator;
+import android.app.Dialog;
+import android.view.LayoutInflater;
+import android.view.animation.DecelerateInterpolator;
+import android.widget.FrameLayout;
 import java.util.List;
 import java.util.Locale;
 import java.util.Random;
@@ -51,22 +56,12 @@ public class MainActivity extends AppCompatActivity {
     private static final String TAG = "MainActivity";
 
     // --- Constantes ---
-    private static final long  FATIGUE_DURATION_THRESHOLD = 500L;
-    private static final long  VOICE_COOLDOWN_MS          = 5000L;
-    private static final float DEFAULT_CONFIDENCE         = 0.60f;
-    private static final int   DEFAULT_SENSITIVITY        = 60;
-    private static final int   CAMERA_PERMISSION_CODE     = 10;
-    private static final long  CAMERA_INIT_DELAY_MS       = 500L;
 
     // --- Suavização do score ---
-    private static final int   SMOOTH_WINDOW = 5;
-    private final float[]      scoreBuffer   = new float[SMOOTH_WINDOW];
+    private final float[]      scoreBuffer   = new float[AppConstants.SMOOTH_WINDOW];
     private int                scoreIndex    = 0;
     private int                scoreCount    = 0;
 
-    private static final String PREFS_NAME      = "DrowsinessPrefs";
-    private static final String KEY_USE_VOICE   = "useVoice";
-    private static final String KEY_SENSITIVITY = "sensitivity";
 
     private static final String[] ALERT_MESSAGES = {
             "Parece que está a ficar com sono. Se precisar, pare para descansar.",
@@ -101,12 +96,16 @@ public class MainActivity extends AppCompatActivity {
     // --- Estado ---
     private boolean isMonitoring        = false;
     private long    fatigueStartTime    = 0;
-    private float   confidenceThreshold = DEFAULT_CONFIDENCE;
+    private float   confidenceThreshold = AppConstants.DEFAULT_CONFIDENCE;
     private boolean useVoiceAlerts      = false;
 
     // --- Sessão ---
     private DriveSession      currentSession;
     private SessionRepository sessionRepository;
+
+    // --- UI extra ---
+    private FrameLayout       cameraLoadingOverlay;
+
 
     // =========================================================================
     // Ciclo de vida
@@ -127,18 +126,25 @@ public class MainActivity extends AppCompatActivity {
         setupDebugCropDrag();
         setupVoiceSwitch();
         setupClearHistoryButton();
+        setupHelpButton();
 
         btnStartStop.setOnClickListener(v -> toggleMonitoring());
         setMonitoringState(false);
 
         requestCameraPermission();
+
+        // Mostra onboarding na primeira abertura
+        SharedPreferences prefs = getSharedPreferences(AppConstants.PREFS_NAME, MODE_PRIVATE);
+        if (!prefs.getBoolean(AppConstants.KEY_ONBOARDING_DONE, false)) {
+            showOnboardingDialog();
+        }
     }
 
     @Override
     protected void onResume() {
         super.onResume();
-        SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
-        useVoiceAlerts = prefs.getBoolean(KEY_USE_VOICE, false);
+        SharedPreferences prefs = getSharedPreferences(AppConstants.PREFS_NAME, MODE_PRIVATE);
+        useVoiceAlerts = prefs.getBoolean(AppConstants.KEY_USE_VOICE, false);
         Switch swVoice = findViewById(R.id.switchVoiceMode);
         if (swVoice != null) swVoice.setChecked(useVoiceAlerts);
     }
@@ -161,7 +167,8 @@ public class MainActivity extends AppCompatActivity {
         tvStatus         = findViewById(R.id.tvStatus);
         pbLiveScore      = findViewById(R.id.pbLiveScore);
         ivDebugCrop      = findViewById(R.id.ivDebugCrop);
-        btnStartStop     = findViewById(R.id.btnStartStop);
+        btnStartStop         = findViewById(R.id.btnStartStop);
+        cameraLoadingOverlay = findViewById(R.id.cameraLoadingOverlay);
     }
 
     private void initAudio() {
@@ -190,7 +197,7 @@ public class MainActivity extends AppCompatActivity {
             startCamera();
         } else {
             ActivityCompat.requestPermissions(this,
-                    new String[]{Manifest.permission.CAMERA}, CAMERA_PERMISSION_CODE);
+                    new String[]{Manifest.permission.CAMERA}, AppConstants.CAMERA_PERMISSION_CODE);
         }
     }
 
@@ -211,6 +218,7 @@ public class MainActivity extends AppCompatActivity {
                 refreshHistoryTab();
             } else if (id == R.id.nav_settings) {
                 layoutSettings.setVisibility(View.VISIBLE);
+                updateLowLightSuggestion();
             }
             return true;
         });
@@ -228,8 +236,8 @@ public class MainActivity extends AppCompatActivity {
         TextView label = findViewById(R.id.tvSensitivityLabel);
         if (sb == null || label == null) return;
 
-        SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
-        int saved = prefs.getInt(KEY_SENSITIVITY, DEFAULT_SENSITIVITY);
+        SharedPreferences prefs = getSharedPreferences(AppConstants.PREFS_NAME, MODE_PRIVATE);
+        int saved = prefs.getInt(AppConstants.KEY_SENSITIVITY, AppConstants.DEFAULT_SENSITIVITY);
         sb.setProgress(saved);
         confidenceThreshold = saved / 100f;
         updateSensitivityLabel(label, saved);
@@ -242,8 +250,8 @@ public class MainActivity extends AppCompatActivity {
             }
             @Override public void onStartTrackingTouch(SeekBar s) {}
             @Override public void onStopTrackingTouch(SeekBar seekBar) {
-                getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
-                        .edit().putInt(KEY_SENSITIVITY, seekBar.getProgress()).apply();
+                getSharedPreferences(AppConstants.PREFS_NAME, MODE_PRIVATE)
+                        .edit().putInt(AppConstants.KEY_SENSITIVITY, seekBar.getProgress()).apply();
             }
         });
     }
@@ -282,8 +290,8 @@ public class MainActivity extends AppCompatActivity {
         if (swVoice == null) return;
         swVoice.setOnCheckedChangeListener((btn, isChecked) -> {
             useVoiceAlerts = isChecked;
-            getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
-                    .edit().putBoolean(KEY_USE_VOICE, isChecked).apply();
+            getSharedPreferences(AppConstants.PREFS_NAME, MODE_PRIVATE)
+                    .edit().putBoolean(AppConstants.KEY_USE_VOICE, isChecked).apply();
         });
     }
 
@@ -327,6 +335,14 @@ public class MainActivity extends AppCompatActivity {
             resetScoreBuffer();
             if (currentSession != null && currentSession.getEventCount() > 0) {
                 sessionRepository.saveSession(currentSession);
+                android.widget.Toast.makeText(this,
+                        "Sessão guardada — " + currentSession.getEventCount()
+                                + " alerta(s) registado(s)",
+                        android.widget.Toast.LENGTH_SHORT).show();
+            } else if (currentSession != null) {
+                android.widget.Toast.makeText(this,
+                        "Sessão terminada sem alertas",
+                        android.widget.Toast.LENGTH_SHORT).show();
             }
             tvStatus.setText("⏸ SISTEMA PAUSADO");
             tvStatus.setBackgroundColor(0xFF444444);
@@ -338,13 +354,13 @@ public class MainActivity extends AppCompatActivity {
     private void resetScoreBuffer() {
         scoreIndex = 0;
         scoreCount = 0;
-        for (int i = 0; i < SMOOTH_WINDOW; i++) scoreBuffer[i] = 0f;
+        for (int i = 0; i < AppConstants.SMOOTH_WINDOW; i++) scoreBuffer[i] = 0f;
     }
 
     private float smoothScore(float raw) {
         scoreBuffer[scoreIndex] = raw;
-        scoreIndex = (scoreIndex + 1) % SMOOTH_WINDOW;
-        if (scoreCount < SMOOTH_WINDOW) scoreCount++;
+        scoreIndex = (scoreIndex + 1) % AppConstants.SMOOTH_WINDOW;
+        if (scoreCount < AppConstants.SMOOTH_WINDOW) scoreCount++;
         float sum = 0f;
         for (int i = 0; i < scoreCount; i++) sum += scoreBuffer[i];
         return sum / scoreCount;
@@ -413,7 +429,7 @@ public class MainActivity extends AppCompatActivity {
         }
         long   duration = (fatigueStartTime == 0) ? 0 : (System.currentTimeMillis() - fatigueStartTime);
         String msgScore = String.format(Locale.getDefault(), "Score: %.3f", score);
-        if (duration >= FATIGUE_DURATION_THRESHOLD) {
+        if (duration >= AppConstants.FATIGUE_DURATION_MS) {
             tvStatus.setText("⚠️ FADIGA DETETADA!\n" + msgScore + "\nTempo: " + duration + "ms");
             tvStatus.setBackgroundColor(getColor(android.R.color.holo_red_dark));
             ivDebugCrop.setBackgroundColor(Color.RED);
@@ -435,7 +451,7 @@ public class MainActivity extends AppCompatActivity {
         triggerVibration();
         if (useVoiceAlerts) {
             long now = System.currentTimeMillis();
-            if (now - lastVoiceTime > VOICE_COOLDOWN_MS) {
+            if (now - lastVoiceTime > AppConstants.VOICE_COOLDOWN_MS) {
                 tts.speak(getRandomMessage(), TextToSpeech.QUEUE_FLUSH, null, "fatigue");
                 lastVoiceTime = now;
             }
@@ -669,14 +685,81 @@ public class MainActivity extends AppCompatActivity {
     }
 
     // =========================================================================
+    // Ajuda / Onboarding
+    // =========================================================================
+
+    private void updateLowLightSuggestion() {
+        TextView tvLowLightTip = findViewById(R.id.tvLowLightTip);
+        SeekBar sb = findViewById(R.id.sbSensitivity);
+        if (tvLowLightTip == null || sb == null) return;
+
+        boolean isLowLight = classifier != null
+                && classifier.getLastLuminance() < AppConstants.LOW_LIGHT_THRESHOLD;
+
+        if (isLowLight) {
+            tvLowLightTip.setVisibility(View.VISIBLE);
+            tvLowLightTip.setText("💡 Pouca luz detetada — recomendamos reduzir o rigor para 30–40 "
+                    + "(atual: " + sb.getProgress() + ")");
+        } else {
+            tvLowLightTip.setVisibility(View.GONE);
+        }
+    }
+
+    private void setupHelpButton() {
+        MaterialButton btnHelp = findViewById(R.id.btnHelp);
+        if (btnHelp != null) btnHelp.setOnClickListener(v -> showHelpDialog());
+    }
+
+    private void showOnboardingDialog() {
+        showHelpDialogInternal(true);
+    }
+
+    private void showHelpDialog() {
+        showHelpDialogInternal(false);
+    }
+
+    private void showHelpDialogInternal(boolean isOnboarding) {
+        Dialog dialog = new Dialog(this, android.R.style.Theme_Black_NoTitleBar_Fullscreen);
+        dialog.setContentView(R.layout.dialog_help);
+        dialog.setCancelable(true);
+
+        MaterialButton btnClose = dialog.findViewById(R.id.btnHelpClose);
+        if (btnClose != null) {
+            btnClose.setText(isOnboarding ? "Vamos começar!" : "Fechar");
+            btnClose.setOnClickListener(v -> {
+                if (isOnboarding) {
+                    getSharedPreferences(AppConstants.PREFS_NAME, MODE_PRIVATE)
+                            .edit().putBoolean(AppConstants.KEY_ONBOARDING_DONE, true).apply();
+                }
+                dialog.dismiss();
+            });
+        }
+
+        dialog.show();
+    }
+
+    // =========================================================================
     // Câmara
     // =========================================================================
 
     private void startCamera() {
+        if (cameraLoadingOverlay != null) cameraLoadingOverlay.setVisibility(View.VISIBLE);
+
         ProcessCameraProvider.getInstance(this).addListener(() -> {
             try {
                 ProcessCameraProvider provider = ProcessCameraProvider.getInstance(this).get();
                 Preview preview = new Preview.Builder().build();
+
+                // Esconde o spinner quando o primeiro frame chegar
+                viewFinder.getPreviewStreamState().observe(this, state -> {
+                    if (state == androidx.camera.view.PreviewView.StreamState.STREAMING) {
+                        if (cameraLoadingOverlay != null) {
+                            cameraLoadingOverlay.animate().alpha(0f).setDuration(400).withEndAction(
+                                    () -> cameraLoadingOverlay.setVisibility(View.GONE)).start();
+                        }
+                    }
+                });
+
                 preview.setSurfaceProvider(viewFinder.getSurfaceProvider());
                 imageAnalysis = new ImageAnalysis.Builder()
                         .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
@@ -685,6 +768,7 @@ public class MainActivity extends AppCompatActivity {
                         this, CameraSelector.DEFAULT_FRONT_CAMERA, preview, imageAnalysis);
             } catch (Exception e) {
                 Log.e(TAG, "Erro ao iniciar câmara", e);
+                if (cameraLoadingOverlay != null) cameraLoadingOverlay.setVisibility(View.GONE);
             }
         }, ContextCompat.getMainExecutor(this));
     }
@@ -716,12 +800,12 @@ public class MainActivity extends AppCompatActivity {
     public void onRequestPermissionsResult(int code,
                                            @NonNull String[] perms, @NonNull int[] results) {
         super.onRequestPermissionsResult(code, perms, results);
-        if (code == CAMERA_PERMISSION_CODE) {
+        if (code == AppConstants.CAMERA_PERMISSION_CODE) {
             if (results.length > 0 && results[0] == PackageManager.PERMISSION_GRANTED) {
-                new Handler(Looper.getMainLooper()).postDelayed(this::startCamera, CAMERA_INIT_DELAY_MS);
+                new Handler(Looper.getMainLooper()).postDelayed(this::startCamera, AppConstants.CAMERA_INIT_DELAY_MS);
             } else {
                 android.widget.Toast.makeText(this,
-                        "A câmara é necessária para detetar fadiga.",
+                        "A câmara é necessária para detectar fadiga.",
                         android.widget.Toast.LENGTH_LONG).show();
                 finish();
             }

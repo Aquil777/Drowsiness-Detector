@@ -15,18 +15,27 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.DrowsinessDetector">
+
+        <!-- Splash — é o LAUNCHER agora -->
         <activity
-            android:name=".SettingsActivity"
-            android:exported="false" />
-        <activity
-            android:name=".MainActivity"
-            android:exported="true">
+            android:name=".SplashActivity"
+            android:exported="true"
+            android:theme="@style/Theme.DrowsinessDetector.NoActionBar">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
-
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="false" />
+
+        <!-- SettingsActivity separado já não é usado — MainActivity tem settings inline -->
+        <activity
+            android:name=".SettingsActivity"
+            android:exported="false" />
+
     </application>
 
 </manifest>

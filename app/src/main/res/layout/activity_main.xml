@@ -11,6 +11,7 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent" />
 
+    <!-- MONITORIZAÇÃO -->
     <androidx.constraintlayout.widget.ConstraintLayout
         android:id="@+id/layoutMonitoring"
         android:layout_width="match_parent"
@@ -75,6 +76,7 @@
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 
+    <!-- CONFIGURAÇÕES -->
     <LinearLayout
         android:id="@+id/layoutSettings"
         android:layout_width="match_parent"
@@ -86,15 +88,34 @@
         android:clickable="true"
         android:focusable="true">
 
-        <TextView
-            android:layout_width="wrap_content"
+        <LinearLayout
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Configurações"
-            android:textColor="#FFFFFF"
-            android:textSize="28sp"
-            android:textStyle="bold"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
             android:layout_marginTop="20dp"
-            android:layout_marginBottom="32dp"/>
+            android:layout_marginBottom="32dp">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Configurações"
+                android:textColor="#FFFFFF"
+                android:textSize="28sp"
+                android:textStyle="bold"/>
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnHelp"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="❓ Ajuda"
+                android:textColor="#FFEB3B"
+                android:textSize="12sp"
+                app:strokeColor="#FFEB3B"
+                app:cornerRadius="20dp"/>
+        </LinearLayout>
 
         <TextView
             android:id="@+id/tvSensitivityLabel"
@@ -104,14 +125,38 @@
             android:textColor="#FFEB3B"
             android:textStyle="bold" />
 
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Define o rigor da detector. Quanto mais alto, menos rápido o alarme dispara."
+            android:textColor="#BBBBBB"
+            android:textSize="12sp"
+            android:layout_marginTop="4dp" />
+
         <SeekBar
             android:id="@+id/sbSensitivity"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="12dp"
-            android:layout_marginBottom="30dp"
             android:max="100"
-            android:progress="60" />
+            android:progress="60"
+            android:thumbTint="#FFFFFF" />
+
+        <!-- Dica dinâmica de baixa luminosidade -->
+        <TextView
+            android:id="@+id/tvLowLightTip"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="#1A1A00"
+            android:padding="10dp"
+            android:layout_marginTop="8dp"
+            android:layout_marginBottom="8dp"
+            android:text="💡 Pouca luz detetada — recomendamos reduzir o rigor para 60–70"
+            android:textColor="#FFEB3B"
+            android:textSize="12sp"
+            android:visibility="gone"/>
+
+        <View android:layout_width="match_parent" android:layout_height="16dp"/>
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -129,19 +174,37 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Alertas por Voz"
+                    android:text="Mensagens de Voz"
                     android:textColor="#FFFFFF"
                     android:textSize="18sp"
                     android:textStyle="bold"/>
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Substitui o alarme por frases faladas pela IA."
+                    android:textColor="#BBBBBB"
+                    android:textSize="12sp"/>
             </LinearLayout>
 
             <Switch
                 android:id="@+id/switchVoiceMode"
                 android:layout_width="wrap_content"
-                android:layout_height="wrap_content" />
+                android:layout_height="wrap_content"
+                android:thumbTint="#FFEB3B"/>
         </LinearLayout>
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="24dp"
+            android:text="Dica: Garanta boa iluminação para evitar falsos positivos."
+            android:textColor="#666666"
+            android:textSize="11sp"
+            android:gravity="center"/>
+
     </LinearLayout>
 
+    <!-- RELATÓRIOS -->
     <LinearLayout
         android:id="@+id/layoutHistory"
         android:layout_width="match_parent"
@@ -152,7 +215,6 @@
         android:clickable="true"
         android:focusable="true">
 
-        <!-- Header -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -167,7 +229,6 @@
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:orientation="vertical">
-
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
@@ -175,7 +236,6 @@
                     android:textColor="#FFFFFF"
                     android:textSize="26sp"
                     android:textStyle="bold"/>
-
                 <TextView
                     android:id="@+id/tvSessionMeta"
                     android:layout_width="wrap_content"
@@ -198,7 +258,6 @@
                 app:cornerRadius="20dp"/>
         </LinearLayout>
 
-        <!-- Card sessão atual -->
         <LinearLayout
             android:id="@+id/cardCurrentSession"
             android:layout_width="match_parent"
@@ -215,17 +274,15 @@
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
                 android:gravity="center_vertical">
-
                 <TextView
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:text="● SESSÃO ATUAL"
+                    android:text="● SESSÃO ACTUAL"
                     android:textColor="#4CAF50"
                     android:textSize="11sp"
                     android:textStyle="bold"
                     android:letterSpacing="0.1"/>
-
                 <TextView
                     android:id="@+id/tvCurrentTime"
                     android:layout_width="wrap_content"
@@ -242,85 +299,39 @@
                 android:layout_marginTop="12dp"
                 android:gravity="center">
 
-                <LinearLayout
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:orientation="vertical"
-                    android:gravity="center">
-                    <TextView
-                        android:id="@+id/tvCurrentAlerts"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="0"
-                        android:textColor="#FF5722"
-                        android:textSize="32sp"
-                        android:textStyle="bold"/>
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="Alertas"
-                        android:textColor="#888888"
-                        android:textSize="11sp"/>
+                <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content"
+                    android:layout_weight="1" android:orientation="vertical" android:gravity="center">
+                    <TextView android:id="@+id/tvCurrentAlerts"
+                        android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:text="0" android:textColor="#FF5722" android:textSize="32sp" android:textStyle="bold"/>
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:text="Alertas" android:textColor="#888888" android:textSize="11sp"/>
                 </LinearLayout>
 
-                <View
-                    android:layout_width="1dp"
-                    android:layout_height="40dp"
-                    android:background="#333333"/>
+                <View android:layout_width="1dp" android:layout_height="40dp" android:background="#333333"/>
 
-                <LinearLayout
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:orientation="vertical"
-                    android:gravity="center">
-                    <TextView
-                        android:id="@+id/tvCurrentAvgScore"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="—"
-                        android:textColor="#FFEB3B"
-                        android:textSize="32sp"
-                        android:textStyle="bold"/>
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="Score Médio"
-                        android:textColor="#888888"
-                        android:textSize="11sp"/>
+                <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content"
+                    android:layout_weight="1" android:orientation="vertical" android:gravity="center">
+                    <TextView android:id="@+id/tvCurrentAvgScore"
+                        android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:text="—" android:textColor="#FFEB3B" android:textSize="32sp" android:textStyle="bold"/>
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:text="Score Médio" android:textColor="#888888" android:textSize="11sp"/>
                 </LinearLayout>
 
-                <View
-                    android:layout_width="1dp"
-                    android:layout_height="40dp"
-                    android:background="#333333"/>
+                <View android:layout_width="1dp" android:layout_height="40dp" android:background="#333333"/>
 
-                <LinearLayout
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:orientation="vertical"
-                    android:gravity="center">
-                    <TextView
-                        android:id="@+id/tvCurrentDuration"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="0s"
-                        android:textColor="#2196F3"
-                        android:textSize="32sp"
-                        android:textStyle="bold"/>
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="Duração"
-                        android:textColor="#888888"
-                        android:textSize="11sp"/>
+                <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content"
+                    android:layout_weight="1" android:orientation="vertical" android:gravity="center">
+                    <TextView android:id="@+id/tvCurrentDuration"
+                        android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:text="0s" android:textColor="#2196F3" android:textSize="32sp" android:textStyle="bold"/>
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:text="Duração" android:textColor="#888888" android:textSize="11sp"/>
                 </LinearLayout>
             </LinearLayout>
         </LinearLayout>
 
-        <!-- Label histórico -->
         <TextView
             android:id="@+id/tvHistoryLabel"
             android:layout_width="wrap_content"
@@ -334,14 +345,12 @@
             android:layout_marginBottom="8dp"
             android:visibility="gone"/>
 
-        <!-- Lista scrollável -->
         <ScrollView
             android:layout_width="match_parent"
             android:layout_height="0dp"
             android:layout_weight="1"
             android:paddingHorizontal="16dp"
             android:clipToPadding="false">
-
             <LinearLayout
                 android:id="@+id/llSessionCards"
                 android:layout_width="match_parent"
@@ -350,7 +359,6 @@
                 android:paddingBottom="16dp"/>
         </ScrollView>
 
-        <!-- Estado vazio -->
         <LinearLayout
             android:id="@+id/layoutEmptyState"
             android:layout_width="match_parent"
@@ -359,34 +367,20 @@
             android:orientation="vertical"
             android:gravity="center"
             android:visibility="gone">
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="😴"
-                android:textSize="48sp"/>
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="😴" android:textSize="48sp"/>
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
                 android:text="Nenhum relatório ainda"
-                android:textColor="#555555"
-                android:textSize="16sp"
-                android:layout_marginTop="12dp"/>
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
+                android:textColor="#555555" android:textSize="16sp" android:layout_marginTop="12dp"/>
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
                 android:text="Inicia a monitorização para registar a tua primeira sessão."
-                android:textColor="#444444"
-                android:textSize="13sp"
-                android:gravity="center"
-                android:layout_marginTop="8dp"
-                android:layout_marginHorizontal="40dp"/>
+                android:textColor="#444444" android:textSize="13sp" android:gravity="center"
+                android:layout_marginTop="8dp" android:layout_marginHorizontal="40dp"/>
         </LinearLayout>
 
     </LinearLayout>
 
+    <!-- Debug crop arrastável -->
     <ImageView
         android:id="@+id/ivDebugCrop"
         android:layout_width="110dp"
@@ -399,6 +393,39 @@
         app:layout_constraintBottom_toTopOf="@id/bottomNavigation"
         app:layout_constraintEnd_toEndOf="parent" />
 
+    <!-- CAMERA LOADING OVERLAY -->
+    <FrameLayout
+        android:id="@+id/cameraLoadingOverlay"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:background="#CC000000"
+        android:elevation="20dp"
+        android:visibility="visible"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toTopOf="@id/bottomNavigation">
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:orientation="vertical"
+            android:gravity="center">
+
+            <ProgressBar
+                android:layout_width="56dp"
+                android:layout_height="56dp"
+                android:indeterminateTint="#FFEB3B"/>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="A iniciar câmara…"
+                android:textColor="#CCCCCC"
+                android:textSize="14sp"
+                android:layout_marginTop="16dp"/>
+        </LinearLayout>
+    </FrameLayout>
+
     <com.google.android.material.bottomnavigation.BottomNavigationView
         android:id="@+id/bottomNavigation"
         android:layout_width="match_parent"
@@ -407,7 +434,7 @@
         app:itemIconTint="#FFFFFF"
         app:itemTextColor="#FFFFFF"
         app:menu="@menu/bottom_nav_menu"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:labelVisibilityMode="unlabeled" />
+        app:labelVisibilityMode="unlabeled"
+        app:layout_constraintBottom_toBottomOf="parent" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>
