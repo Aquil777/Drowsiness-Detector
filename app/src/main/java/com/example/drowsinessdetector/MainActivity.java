@@ -58,9 +58,9 @@ public class MainActivity extends AppCompatActivity {
     // --- Constantes ---
 
     // --- Suavização do score ---
-    private final float[]      scoreBuffer   = new float[AppConstants.SMOOTH_WINDOW];
-    private int                scoreIndex    = 0;
-    private int                scoreCount    = 0;
+    private final float[] scoreBuffer = new float[AppConstants.SMOOTH_WINDOW];
+    private int scoreIndex = 0;
+    private int scoreCount = 0;
 
 
     private static final String[] ALERT_MESSAGES = {
@@ -71,40 +71,40 @@ public class MainActivity extends AppCompatActivity {
     };
 
     // --- UI ---
-    private PreviewView    viewFinder;
-    private TextView       tvStatus;
-    private ProgressBar    pbLiveScore;
-    private ImageView      ivDebugCrop;
+    private PreviewView viewFinder;
+    private TextView tvStatus;
+    private ProgressBar pbLiveScore;
+    private ImageView ivDebugCrop;
     private MaterialButton btnStartStop;
-    private ConstraintLayout          layoutMonitoring;
+    private ConstraintLayout layoutMonitoring;
     private android.widget.LinearLayout layoutSettings;
     private android.widget.LinearLayout layoutHistory;
 
     // --- Câmara ---
-    private ImageAnalysis   imageAnalysis;
+    private ImageAnalysis imageAnalysis;
     private ExecutorService cameraExecutor;
 
     // --- IA ---
     private FatigueClassifier classifier;
 
     // --- Áudio ---
-    private MediaPlayer  mediaPlayer;
+    private MediaPlayer mediaPlayer;
     private TextToSpeech tts;
-    private boolean      isAlarmPlaying = false;
-    private long         lastVoiceTime  = 0;
+    private boolean isAlarmPlaying = false;
+    private long lastVoiceTime = 0;
 
     // --- Estado ---
-    private boolean isMonitoring        = false;
-    private long    fatigueStartTime    = 0;
-    private float   confidenceThreshold = AppConstants.DEFAULT_CONFIDENCE;
-    private boolean useVoiceAlerts      = false;
+    private boolean isMonitoring = false;
+    private long fatigueStartTime = 0;
+    private float confidenceThreshold = AppConstants.DEFAULT_CONFIDENCE;
+    private boolean useVoiceAlerts = false;
 
     // --- Sessão ---
-    private DriveSession      currentSession;
+    private DriveSession currentSession;
     private SessionRepository sessionRepository;
 
     // --- UI extra ---
-    private FrameLayout       cameraLoadingOverlay;
+    private FrameLayout cameraLoadingOverlay;
 
 
     // =========================================================================
@@ -161,13 +161,13 @@ public class MainActivity extends AppCompatActivity {
 
     private void bindViews() {
         layoutMonitoring = findViewById(R.id.layoutMonitoring);
-        layoutSettings   = findViewById(R.id.layoutSettings);
-        layoutHistory    = findViewById(R.id.layoutHistory);
-        viewFinder       = findViewById(R.id.viewFinder);
-        tvStatus         = findViewById(R.id.tvStatus);
-        pbLiveScore      = findViewById(R.id.pbLiveScore);
-        ivDebugCrop      = findViewById(R.id.ivDebugCrop);
-        btnStartStop         = findViewById(R.id.btnStartStop);
+        layoutSettings = findViewById(R.id.layoutSettings);
+        layoutHistory = findViewById(R.id.layoutHistory);
+        viewFinder = findViewById(R.id.viewFinder);
+        tvStatus = findViewById(R.id.tvStatus);
+        pbLiveScore = findViewById(R.id.pbLiveScore);
+        ivDebugCrop = findViewById(R.id.ivDebugCrop);
+        btnStartStop = findViewById(R.id.btnStartStop);
         cameraLoadingOverlay = findViewById(R.id.cameraLoadingOverlay);
     }
 
@@ -185,7 +185,7 @@ public class MainActivity extends AppCompatActivity {
 
     private void initClassifier() {
         try {
-            classifier     = new FatigueClassifier(this);
+            classifier = new FatigueClassifier(this);
             cameraExecutor = Executors.newSingleThreadExecutor();
         } catch (Exception e) {
             Log.e(TAG, "Erro ao inicializar classificador", e);
@@ -232,7 +232,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void setupSeekBar() {
-        SeekBar  sb    = findViewById(R.id.sbSensitivity);
+        SeekBar sb = findViewById(R.id.sbSensitivity);
         TextView label = findViewById(R.id.tvSensitivityLabel);
         if (sb == null || label == null) return;
 
@@ -248,8 +248,13 @@ public class MainActivity extends AppCompatActivity {
                 confidenceThreshold = progress / 100f;
                 updateSensitivityLabel(label, progress);
             }
-            @Override public void onStartTrackingTouch(SeekBar s) {}
-            @Override public void onStopTrackingTouch(SeekBar seekBar) {
+
+            @Override
+            public void onStartTrackingTouch(SeekBar s) {
+            }
+
+            @Override
+            public void onStopTrackingTouch(SeekBar seekBar) {
                 getSharedPreferences(AppConstants.PREFS_NAME, MODE_PRIVATE)
                         .edit().putInt(AppConstants.KEY_SENSITIVITY, seekBar.getProgress()).apply();
             }
@@ -258,9 +263,9 @@ public class MainActivity extends AppCompatActivity {
 
     private void updateSensitivityLabel(TextView label, int progress) {
         String cat;
-        if (progress < 35)      cat = "RIGOROSO";
+        if (progress < 35) cat = "RIGOROSO";
         else if (progress > 75) cat = "RELAXADO";
-        else                    cat = "EQUILIBRADO";
+        else cat = "EQUILIBRADO";
         label.setText(String.format("Modo: %s (%.2f)", cat, progress / 100f));
     }
 
@@ -317,7 +322,7 @@ public class MainActivity extends AppCompatActivity {
         isMonitoring = active;
 
         if (active) {
-            currentSession   = new DriveSession();
+            currentSession = new DriveSession();
             fatigueStartTime = 0;
             resetScoreBuffer();
             btnStartStop.setEnabled(false);
@@ -380,9 +385,15 @@ public class MainActivity extends AppCompatActivity {
             if (imageAnalysis != null) {
                 imageAnalysis.setAnalyzer(cameraExecutor, image -> {
                     runOnUiThread(() -> {
-                        if (!isMonitoring || classifier == null) { image.close(); return; }
+                        if (!isMonitoring || classifier == null) {
+                            image.close();
+                            return;
+                        }
                         Bitmap bitmap = viewFinder.getBitmap();
-                        if (bitmap == null) { image.close(); return; }
+                        if (bitmap == null) {
+                            image.close();
+                            return;
+                        }
                         Bitmap cropped = centerCrop(bitmap);
                         ivDebugCrop.setImageBitmap(cropped);
                         image.close();
@@ -421,13 +432,13 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void updateUI(float score) {
-        pbLiveScore.setProgress((int)(score * 100));
+        pbLiveScore.setProgress((int) (score * 100));
         if (score > confidenceThreshold) {
             if (fatigueStartTime == 0) fatigueStartTime = System.currentTimeMillis();
         } else {
             fatigueStartTime = 0;
         }
-        long   duration = (fatigueStartTime == 0) ? 0 : (System.currentTimeMillis() - fatigueStartTime);
+        long duration = (fatigueStartTime == 0) ? 0 : (System.currentTimeMillis() - fatigueStartTime);
         String msgScore = String.format(Locale.getDefault(), "Score: %.3f", score);
         if (duration >= AppConstants.FATIGUE_DURATION_MS) {
             tvStatus.setText("⚠️ FADIGA DETETADA!\n" + msgScore + "\nTempo: " + duration + "ms");
@@ -496,36 +507,37 @@ public class MainActivity extends AppCompatActivity {
     // =========================================================================
 
     private void refreshHistoryTab() {
-        LinearLayout cardCurrent  = findViewById(R.id.cardCurrentSession);
-        LinearLayout llCards      = findViewById(R.id.llSessionCards);
-        LinearLayout emptyState   = findViewById(R.id.layoutEmptyState);
-        TextView     tvLabel      = findViewById(R.id.tvHistoryLabel);
-        TextView     tvMeta       = findViewById(R.id.tvSessionMeta);
+        LinearLayout cardCurrent = findViewById(R.id.cardCurrentSession);
+        LinearLayout llCards = findViewById(R.id.llSessionCards);
+        LinearLayout emptyState = findViewById(R.id.layoutEmptyState);
+        TextView tvLabel = findViewById(R.id.tvHistoryLabel);
+        TextView tvMeta = findViewById(R.id.tvSessionMeta);
 
         if (llCards == null) return;
 
         List<DriveSession.SessionSnapshot> history = sessionRepository.loadSnapshots();
         boolean hasCurrentEvents = currentSession != null && currentSession.getEventCount() > 0;
-        boolean hasHistory       = !history.isEmpty();
+        boolean hasHistory = !history.isEmpty();
 
         // --- Sessão atual ---
         if (hasCurrentEvents && cardCurrent != null) {
             cardCurrent.setVisibility(View.VISIBLE);
 
-            TextView tvTime    = findViewById(R.id.tvCurrentTime);
-            TextView tvAlerts  = findViewById(R.id.tvCurrentAlerts);
-            TextView tvAvg     = findViewById(R.id.tvCurrentAvgScore);
-            TextView tvDur     = findViewById(R.id.tvCurrentDuration);
+            TextView tvTime = findViewById(R.id.tvCurrentTime);
+            TextView tvAlerts = findViewById(R.id.tvCurrentAlerts);
+            TextView tvAvg = findViewById(R.id.tvCurrentAvgScore);
+            TextView tvDur = findViewById(R.id.tvCurrentDuration);
 
             long elapsed = currentSession.getElapsedSeconds();
-            int  alerts  = currentSession.getEventCount();
-            float avg    = currentSession.getAverageScore();
+            int alerts = currentSession.getEventCount();
+            float avg = currentSession.getAverageScore();
 
-            if (tvTime   != null) tvTime.setText(formatDuration(elapsed));
+            if (tvTime != null) tvTime.setText(formatDuration(elapsed));
             if (tvAlerts != null) tvAlerts.setText(String.valueOf(alerts));
-            if (tvAvg    != null) tvAvg.setText(avg > 0 ? String.format(Locale.getDefault(), "%.2f", avg) : "—");
-            if (tvDur    != null) tvDur.setText(formatDuration(elapsed));
-            if (tvMeta   != null) tvMeta.setText(String.format(Locale.getDefault(),
+            if (tvAvg != null)
+                tvAvg.setText(avg > 0 ? String.format(Locale.getDefault(), "%.2f", avg) : "—");
+            if (tvDur != null) tvDur.setText(formatDuration(elapsed));
+            if (tvMeta != null) tvMeta.setText(String.format(Locale.getDefault(),
                     "%d alerta%s  ·  %s", alerts, alerts == 1 ? "" : "s", formatDuration(elapsed)));
         } else if (cardCurrent != null) {
             cardCurrent.setVisibility(View.GONE);
@@ -557,7 +569,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private View buildSessionCard(DriveSession.SessionSnapshot snap) {
-        int dp8  = dp(8);
+        int dp8 = dp(8);
         int dp12 = dp(12);
         int dp16 = dp(16);
 
@@ -788,10 +800,20 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void releaseResources() {
-        if (imageAnalysis  != null) imageAnalysis.clearAnalyzer();
-        if (mediaPlayer    != null) { mediaPlayer.release();      mediaPlayer    = null; }
-        if (classifier     != null) { classifier.close();         classifier     = null; }
-        if (tts            != null) { tts.stop(); tts.shutdown(); tts            = null; }
+        if (imageAnalysis != null) imageAnalysis.clearAnalyzer();
+        if (mediaPlayer != null) {
+            mediaPlayer.release();
+            mediaPlayer = null;
+        }
+        if (classifier != null) {
+            classifier.close();
+            classifier = null;
+        }
+        if (tts != null) {
+            tts.stop();
+            tts.shutdown();
+            tts = null;
+        }
         if (cameraExecutor != null) cameraExecutor.shutdown();
         stopVibration();
     }
