@@ -1,4 +1,4 @@
-# DrowsyGuard 🚗
+# Drowsy Detector 
 
 **PT:** Aplicação Android desenvolvida como Trabalho de Conclusão de Curso (TCC) em Engenharia Informática no ISCTEM, Moçambique. Detecta sinais de fadiga em condutores em tempo real através da câmara frontal do smartphone, utilizando um modelo de Deep Learning baseado na arquitectura MobileNetV2.
 
