@@ -1,0 +1,118 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="#080A0F">
+
+    <!-- ── ILLUSTRATION — top 55% ── -->
+    <FrameLayout
+        android:id="@+id/stepIllustration"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="55">
+
+        <!-- Coloured circle behind emoji -->
+        <View
+            android:layout_width="220dp"
+            android:layout_height="220dp"
+            android:layout_gravity="center"
+            android:background="@drawable/onboarding_circle_bg"/>
+
+        <!-- Large emoji -->
+        <TextView
+            android:id="@+id/stepEmoji"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:text="📱"
+            android:textSize="96sp"/>
+
+        <!-- Step number badge -->
+        <TextView
+            android:id="@+id/stepBadge"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:layout_gravity="top|start"
+            android:layout_margin="20dp"
+            android:gravity="center"
+            android:text="1"
+            android:textColor="#C8AB5A"
+            android:textSize="13sp"
+            android:fontFamily="@font/jetbrains_mono_bold"
+            android:background="@drawable/step_badge_bg"/>
+
+    </FrameLayout>
+
+    <!-- ── TEXT — bottom 45% ── -->
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="45"
+        android:fillViewport="true">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingHorizontal="32dp"
+            android:paddingTop="24dp"
+            android:paddingBottom="24dp">
+
+            <!-- Title -->
+            <TextView
+                android:id="@+id/stepTitle"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Fixa o telemóvel"
+                android:textColor="#FFFFFF"
+                android:textSize="22sp"
+                android:fontFamily="@font/jetbrains_mono_bold"
+                android:lineSpacingMultiplier="1.2"
+                android:layout_marginBottom="12dp"/>
+
+            <!-- Description -->
+            <TextView
+                android:id="@+id/stepDescription"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Usa um suporte de tablier com a câmara frontal apontada ao rosto."
+                android:textColor="#8A8F9E"
+                android:textSize="14sp"
+                android:fontFamily="@font/jetbrains_mono"
+                android:lineSpacingMultiplier="1.5"
+                android:layout_marginBottom="20dp"/>
+
+            <!-- Safety disclaimer — amber bg, dark text (visible!) -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:background="@drawable/disclaimer_bg"
+                android:padding="14dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="⚠"
+                    android:textColor="#1A1200"
+                    android:textSize="16sp"
+                    android:layout_marginEnd="10dp"/>
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Esta aplicação é um auxílio — nunca substitui pausas reais. Se sentires sono, para em local seguro."
+                    android:textColor="#1A1200"
+                    android:textSize="12sp"
+                    android:fontFamily="@font/jetbrains_mono"
+                    android:lineSpacingMultiplier="1.4"/>
+            </LinearLayout>
+
+        </LinearLayout>
+    </ScrollView>
+
+</LinearLayout>

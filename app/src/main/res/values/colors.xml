@@ -1,5 +1,7 @@
-<?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="black">#FF000000</color>
-    <color name="white">#FFFFFFFF</color>
+    <color name="gold_primary">#C8AB5A</color>
+    <color name="dark_bg">#0C0E16</color>
+    <color name="stroke_color">#1E2230</color>
+    <color name="error_red">#5A1010</color>
+    <color name="success_green">#1A4A28</color>
 </resources>

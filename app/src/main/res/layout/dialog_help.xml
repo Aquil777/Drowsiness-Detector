@@ -1,9 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- dialog_help.xml — Quick help bottom-sheet style, accessed from Settings -->
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#121212"
+    android:background="#080A0F"
     android:fillViewport="true">
 
     <LinearLayout
@@ -14,218 +15,13 @@
         android:paddingTop="48dp"
         android:paddingBottom="48dp">
 
-        <!-- Logo / ícone -->
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_gravity="center"
-            android:text="🚗"
-            android:textSize="52sp"
-            android:layout_marginBottom="8dp"/>
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_gravity="center"
-            android:text="Detector Sonolência"
-            android:textColor="#FFFFFF"
-            android:textSize="26sp"
-            android:textStyle="bold"
-            android:layout_marginBottom="4dp"/>
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_gravity="center"
-            android:text="Deteção de fadiga ao volante"
-            android:textColor="#888888"
-            android:textSize="13sp"
-            android:layout_marginBottom="36dp"/>
-
-        <!-- Passo 1 -->
+        <!-- Header -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            android:layout_marginBottom="24dp">
-
-            <TextView
-                android:layout_width="44dp"
-                android:layout_height="44dp"
-                android:background="@drawable/circle_badge"
-                android:gravity="center"
-                android:minWidth="44dp"
-                android:minHeight="44dp"
-                android:text="1"
-                android:textColor="#FFEB3B"
-                android:textSize="18sp"
-                android:textStyle="bold"/>
-
-            <LinearLayout
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:orientation="vertical"
-                android:layout_marginStart="16dp">
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Posiciona o telemóvel"
-                    android:textColor="#FFFFFF"
-                    android:textSize="16sp"
-                    android:textStyle="bold"/>
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Coloca o dispositivo de frente para o teu rosto — no suporte do tablier ou próximo do volante."
-                    android:textColor="#AAAAAA"
-                    android:textSize="13sp"
-                    android:layout_marginTop="4dp"/>
-            </LinearLayout>
-        </LinearLayout>
-
-        <!-- Passo 2 -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:layout_marginBottom="24dp">
-
-            <TextView
-                android:layout_width="44dp"
-                android:layout_height="44dp"
-                android:background="@drawable/circle_badge"
-                android:gravity="center"
-                android:minWidth="44dp"
-                android:minHeight="44dp"
-                android:text="2"
-                android:textColor="#FFEB3B"
-                android:textSize="18sp"
-                android:textStyle="bold"/>
-
-            <LinearLayout
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:orientation="vertical"
-                android:layout_marginStart="16dp">
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Garante boa iluminação"
-                    android:textColor="#FFFFFF"
-                    android:textSize="16sp"
-                    android:textStyle="bold"/>
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="O sistema funciona melhor com luz natural ou interior. Em ambientes escuros, reduz o rigor nas Configurações."
-                    android:textColor="#AAAAAA"
-                    android:textSize="13sp"
-                    android:layout_marginTop="4dp"/>
-            </LinearLayout>
-        </LinearLayout>
-
-        <!-- Passo 3 -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:layout_marginBottom="24dp">
-
-            <TextView
-                android:layout_width="44dp"
-                android:layout_height="44dp"
-                android:background="@drawable/circle_badge"
-                android:gravity="center"
-                android:minWidth="44dp"
-                android:minHeight="44dp"
-                android:text="3"
-                android:textColor="#FFEB3B"
-                android:textSize="18sp"
-                android:textStyle="bold"/>
-
-            <LinearLayout
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:orientation="vertical"
-                android:layout_marginStart="16dp">
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Carrega em INICIAR"
-                    android:textColor="#FFFFFF"
-                    android:textSize="16sp"
-                    android:textStyle="bold"/>
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="A contagem decrescente dá-te 3 segundos para te posicionares. A câmara frontal analisa os teus olhos em tempo real."
-                    android:textColor="#AAAAAA"
-                    android:textSize="13sp"
-                    android:layout_marginTop="4dp"/>
-            </LinearLayout>
-        </LinearLayout>
-
-        <!-- Passo 4 -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:layout_marginBottom="36dp">
-
-            <TextView
-                android:layout_width="44dp"
-                android:layout_height="44dp"
-                android:background="@drawable/circle_badge"
-                android:gravity="center"
-                android:minWidth="44dp"
-                android:minHeight="44dp"
-                android:text="4"
-                android:textColor="#FFEB3B"
-                android:textSize="18sp"
-                android:textStyle="bold"/>
-
-            <LinearLayout
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:orientation="vertical"
-                android:layout_marginStart="16dp">
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Alertas e Relatórios"
-                    android:textColor="#FFFFFF"
-                    android:textSize="16sp"
-                    android:textStyle="bold"/>
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Quando fadiga é detetada, soa um alarme e o telemóvel vibra. Consulta os relatórios no separador."
-                    android:textColor="#AAAAAA"
-                    android:textSize="13sp"
-                    android:layout_marginTop="4dp"/>
-            </LinearLayout>
-        </LinearLayout>
-
-        <!-- Aviso -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:background="#1A1A00"
-            android:padding="14dp"
-            android:orientation="horizontal"
-            android:layout_marginBottom="20dp">
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="⚠️"
-                android:textSize="18sp"
-                android:layout_marginEnd="10dp"
-                android:layout_gravity="top"/>
+            android:gravity="center_vertical"
+            android:layout_marginBottom="32dp">
 
             <LinearLayout
                 android:layout_width="0dp"
@@ -234,34 +30,209 @@
                 android:orientation="vertical">
 
                 <TextView
-                    android:layout_width="match_parent"
+                    android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Esta aplicação é um auxílio. Nunca substitui pausas regulares. Se sentires sonolência, pare em local seguro."
-                    android:textColor="#FFEB3B"
-                    android:textSize="12sp"/>
+                    android:text="DROWSE"
+                    android:textColor="#FFFFFF"
+                    android:textSize="24sp"
+                    android:fontFamily="@font/jetbrains_mono_bold"
+                    android:letterSpacing="0.1"/>
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Como funciona"
+                    android:textColor="#3A3F50"
+                    android:textSize="12sp"
+                    android:fontFamily="@font/jetbrains_mono"
+                    android:layout_marginTop="4dp"/>
+            </LinearLayout>
+
+            <TextView
+                android:layout_width="36dp"
+                android:layout_height="36dp"
+                android:gravity="center"
+                android:text="?"
+                android:textColor="#C8AB5A"
+                android:textSize="18sp"
+                android:fontFamily="@font/jetbrains_mono_bold"
+                android:background="@drawable/circle_badge"/>
+        </LinearLayout>
+
+        <!-- Step 1 -->
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:orientation="horizontal" android:layout_marginBottom="24dp">
+
+            <TextView
+                android:layout_width="36dp" android:layout_height="36dp"
+                android:background="@drawable/step_badge_bg"
+                android:gravity="center" android:text="1"
+                android:textColor="#C8AB5A" android:textSize="14sp"
+                android:fontFamily="@font/jetbrains_mono_bold"/>
+
+            <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content"
+                android:layout_weight="1" android:orientation="vertical"
+                android:layout_marginStart="16dp">
+
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:text="Posiciona o telemóvel"
+                    android:textColor="#FFFFFF" android:textSize="15sp"
+                    android:fontFamily="@font/jetbrains_mono"/>
+
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:text="Câmara frontal apontada ao rosto — suporte de tablier ou viseira."
+                    android:textColor="#5A5F6E" android:textSize="12sp"
+                    android:fontFamily="@font/jetbrains_mono" android:lineSpacingMultiplier="1.4"
+                    android:layout_marginTop="4dp"/>
             </LinearLayout>
         </LinearLayout>
 
-        <!-- Versão alpha -->
+        <!-- Divider -->
+        <View android:layout_width="match_parent" android:layout_height="1dp"
+            android:background="#0E1018" android:layout_marginBottom="24dp"/>
+
+        <!-- Step 2 -->
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:orientation="horizontal" android:layout_marginBottom="24dp">
+
+            <TextView
+                android:layout_width="36dp" android:layout_height="36dp"
+                android:background="@drawable/step_badge_bg"
+                android:gravity="center" android:text="2"
+                android:textColor="#C8AB5A" android:textSize="14sp"
+                android:fontFamily="@font/jetbrains_mono_bold"/>
+
+            <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content"
+                android:layout_weight="1" android:orientation="vertical"
+                android:layout_marginStart="16dp">
+
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:text="Iluminação adequada"
+                    android:textColor="#FFFFFF" android:textSize="15sp"
+                    android:fontFamily="@font/jetbrains_mono"/>
+
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:text="Luz natural ou interior. Em ambientes escuros, reduz o rigor nas Definições."
+                    android:textColor="#5A5F6E" android:textSize="12sp"
+                    android:fontFamily="@font/jetbrains_mono" android:lineSpacingMultiplier="1.4"
+                    android:layout_marginTop="4dp"/>
+            </LinearLayout>
+        </LinearLayout>
+
+        <View android:layout_width="match_parent" android:layout_height="1dp"
+            android:background="#0E1018" android:layout_marginBottom="24dp"/>
+
+        <!-- Step 3 -->
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:orientation="horizontal" android:layout_marginBottom="24dp">
+
+            <TextView
+                android:layout_width="36dp" android:layout_height="36dp"
+                android:background="@drawable/step_badge_bg"
+                android:gravity="center" android:text="3"
+                android:textColor="#C8AB5A" android:textSize="14sp"
+                android:fontFamily="@font/jetbrains_mono_bold"/>
+
+            <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content"
+                android:layout_weight="1" android:orientation="vertical"
+                android:layout_marginStart="16dp">
+
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:text="Prima INICIAR"
+                    android:textColor="#FFFFFF" android:textSize="15sp"
+                    android:fontFamily="@font/jetbrains_mono"/>
+
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:text="Contagem de 3 segundos. A câmara analisa os teus olhos em tempo real."
+                    android:textColor="#5A5F6E" android:textSize="12sp"
+                    android:fontFamily="@font/jetbrains_mono" android:lineSpacingMultiplier="1.4"
+                    android:layout_marginTop="4dp"/>
+            </LinearLayout>
+        </LinearLayout>
+
+        <View android:layout_width="match_parent" android:layout_height="1dp"
+            android:background="#0E1018" android:layout_marginBottom="24dp"/>
+
+        <!-- Step 4 -->
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:orientation="horizontal" android:layout_marginBottom="32dp">
+
+            <TextView
+                android:layout_width="36dp" android:layout_height="36dp"
+                android:background="@drawable/step_badge_bg"
+                android:gravity="center" android:text="4"
+                android:textColor="#C8AB5A" android:textSize="14sp"
+                android:fontFamily="@font/jetbrains_mono_bold"/>
+
+            <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content"
+                android:layout_weight="1" android:orientation="vertical"
+                android:layout_marginStart="16dp">
+
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:text="Alertas e Relatórios"
+                    android:textColor="#FFFFFF" android:textSize="15sp"
+                    android:fontFamily="@font/jetbrains_mono"/>
+
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:text="Alarme + vibração quando fadiga é detetada. Histórico guardado em Relatórios."
+                    android:textColor="#5A5F6E" android:textSize="12sp"
+                    android:fontFamily="@font/jetbrains_mono" android:lineSpacingMultiplier="1.4"
+                    android:layout_marginTop="4dp"/>
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- Warning block -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="@drawable/warning_card"
+            android:padding="16dp"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginBottom="28dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="⚠"
+                android:textColor="#C8AB5A"
+                android:textSize="18sp"
+                android:layout_marginEnd="12dp"/>
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Esta aplicação é um auxílio — nunca substitui pausas reais. Se sentires sono, para em local seguro e descansa."
+                android:textColor="#A08840"
+                android:textSize="12sp"
+                android:fontFamily="@font/jetbrains_mono"
+                android:lineSpacingMultiplier="1.4"/>
+        </LinearLayout>
+
+        <!-- Version -->
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Versão Alpha — em desenvolvimento activo. Podem ocorrer falsos positivos."
-            android:textColor="#ffffff"
-            android:textSize="11sp"
+            android:text="DROWSE v3.0 — Alpha Build"
+            android:textColor="#1E2230"
+            android:textSize="10sp"
+            android:fontFamily="@font/jetbrains_mono"
             android:gravity="center"
             android:layout_marginBottom="20dp"/>
 
-        <!-- Botão fechar -->
+        <!-- Close button -->
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btnHelpClose"
             android:layout_width="match_parent"
-            android:layout_height="56dp"
-            android:text="Vamos começar!"
+            android:layout_height="52dp"
+            android:text="FECHAR"
             android:textColor="#000000"
-            android:textStyle="bold"
-            app:backgroundTint="#FFEB3B"
-            app:cornerRadius="28dp"/>
+            android:textSize="12sp"
+            android:fontFamily="@font/jetbrains_mono_bold"
+            android:letterSpacing="0.1"
+            app:backgroundTint="#C8AB5A"
+            app:cornerRadius="12dp"/>
 
     </LinearLayout>
 </ScrollView>

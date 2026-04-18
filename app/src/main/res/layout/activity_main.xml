@@ -4,224 +4,747 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#000000">
+    android:background="#080A0F">
 
+    <!-- ═══════════════════════════════════════════════════════ CAMERA FEED -->
     <androidx.camera.view.PreviewView
         android:id="@+id/viewFinder"
         android:layout_width="match_parent"
-        android:layout_height="match_parent" />
+        android:layout_height="0dp"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toTopOf="@id/bottomNavigation" />
 
-    <!-- MONITORIZAÇÃO -->
+    <!-- Gradient vignette overlay on camera -->
+    <View
+        android:id="@+id/cameraVignette"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:background="@drawable/camera_vignette"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toTopOf="@id/bottomNavigation" />
+
+    <!-- ═════════════════════════════════════════════ MONITORING TAB -->
     <androidx.constraintlayout.widget.ConstraintLayout
         android:id="@+id/layoutMonitoring"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:visibility="visible">
+        android:layout_height="0dp"
+        android:visibility="visible"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toTopOf="@id/bottomNavigation">
 
-        <View
-            android:id="@+id/ivFaceGuide"
-            android:layout_width="260dp"
-            android:layout_height="320dp"
-            android:background="@drawable/focus_border"
-            android:alpha="0.4"
-            app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintBottom_toBottomOf="parent"
-            app:layout_constraintLeft_toLeftOf="parent"
-            app:layout_constraintRight_toRightOf="parent" />
-
+        <!-- Top status bar -->
         <LinearLayout
-            android:id="@+id/statusContainer"
+            android:id="@+id/topStatusBar"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:layout_marginTop="32dp"
-            android:layout_marginHorizontal="16dp"
-            android:background="#B3000000"
-            android:padding="12dp"
+            android:background="@drawable/top_bar_gradient"
+            android:paddingTop="20dp"
+            android:paddingBottom="16dp"
+            android:paddingHorizontal="20dp"
             app:layout_constraintTop_toTopOf="parent">
 
+            <!-- App title row -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:layout_marginBottom="16dp">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="DROWSE"
+                    android:textColor="#FFFFFF"
+                    android:textSize="20sp"
+                    android:fontFamily="@font/jetbrains_mono_bold"
+                    android:letterSpacing="0.15"/>
+
+                <TextView
+                    android:id="@+id/tvSessionTimer"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="—"
+                    android:textColor="#5A5F6E"
+                    android:textSize="13sp"
+                    android:fontFamily="@font/jetbrains_mono"
+                    android:background="@drawable/pill_dark"
+                    android:paddingHorizontal="10dp"
+                    android:paddingVertical="4dp"/>
+            </LinearLayout>
+
+            <!-- Status chip -->
             <TextView
                 android:id="@+id/tvStatus"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:gravity="center"
-                android:text="SISTEMA PAUSADO"
-                android:textColor="#FFFFFF"
-                android:textSize="18sp"
-                android:textStyle="bold" />
+                android:text="SISTEMA INATIVO"
+                android:textColor="#5A5F6E"
+                android:textSize="13sp"
+                android:fontFamily="@font/jetbrains_mono"
+                android:letterSpacing="0.08"
+                android:background="@drawable/status_chip_idle"
+                android:paddingVertical="10dp"
+                android:paddingHorizontal="16dp"/>
 
+        </LinearLayout>
+
+        <!-- Score row (bar mode) — between status chip and face guide -->
+        <LinearLayout
+            android:id="@+id/rowScoreBar"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingHorizontal="24dp"
+            android:paddingTop="10dp"
+            android:paddingBottom="6dp"
+            android:visibility="gone"
+            app:layout_constraintTop_toBottomOf="@id/topStatusBar"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent">
+
+            <!-- Score label + value -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:layout_marginBottom="6dp">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="SCORE"
+                    android:textColor="#3A3F50"
+                    android:textSize="10sp"
+                    android:fontFamily="@font/jetbrains_mono"
+                    android:letterSpacing="0.12"/>
+
+                <TextView
+                    android:id="@+id/tvScoreInPanel"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="0.00"
+                    android:textColor="#C8AB5A"
+                    android:textSize="15sp"
+                    android:fontFamily="@font/jetbrains_mono_bold"
+                    android:background="@drawable/pill_dark"
+                    android:paddingHorizontal="10dp"
+                    android:paddingVertical="3dp"/>
+            </LinearLayout>
+
+            <!-- Progress bar -->
             <ProgressBar
                 android:id="@+id/pbLiveScore"
                 style="?android:attr/progressBarStyleHorizontal"
                 android:layout_width="match_parent"
-                android:layout_height="12dp"
-                android:layout_marginTop="8dp"
+                android:layout_height="6dp"
                 android:max="100"
                 android:progress="0"
-                android:progressTint="#FFEB3B" />
+                android:progressTint="#C8AB5A"
+                android:progressBackgroundTint="#1E2230"/>
+
         </LinearLayout>
 
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btnStartStop"
+        <!-- Face guide — square, centred -->
+        <View
+            android:id="@+id/ivFaceGuide"
+            android:layout_width="260dp"
+            android:layout_height="260dp"
+            android:background="@drawable/face_guide_border"
+            android:alpha="0.7"
+            app:layout_constraintTop_toBottomOf="@id/rowScoreBar"
+            app:layout_constraintBottom_toTopOf="@id/bottomControlPanel"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent" />
+
+        <!-- Corner decorators -->
+        <View
+            android:layout_width="28dp"
+            android:layout_height="28dp"
+            android:background="@drawable/corner_tl"
+            android:layout_marginTop="-1dp"
+            android:layout_marginStart="-1dp"
+            app:layout_constraintTop_toTopOf="@id/ivFaceGuide"
+            app:layout_constraintStart_toStartOf="@id/ivFaceGuide"/>
+        <View
+            android:layout_width="28dp"
+            android:layout_height="28dp"
+            android:background="@drawable/corner_tr"
+            android:layout_marginTop="-1dp"
+            android:layout_marginEnd="-1dp"
+            app:layout_constraintTop_toTopOf="@id/ivFaceGuide"
+            app:layout_constraintEnd_toEndOf="@id/ivFaceGuide"/>
+        <View
+            android:layout_width="28dp"
+            android:layout_height="28dp"
+            android:background="@drawable/corner_bl"
+            android:layout_marginBottom="-1dp"
+            android:layout_marginStart="-1dp"
+            app:layout_constraintBottom_toBottomOf="@id/ivFaceGuide"
+            app:layout_constraintStart_toStartOf="@id/ivFaceGuide"/>
+        <View
+            android:layout_width="28dp"
+            android:layout_height="28dp"
+            android:background="@drawable/corner_br"
+            android:layout_marginBottom="-1dp"
+            android:layout_marginEnd="-1dp"
+            app:layout_constraintBottom_toBottomOf="@id/ivFaceGuide"
+            app:layout_constraintEnd_toEndOf="@id/ivFaceGuide"/>
+
+        <!-- PEAK METER — left of face guide, hidden by default -->
+        <LinearLayout
+            android:id="@+id/peakMeterContainer"
+            android:layout_width="32dp"
+            android:layout_height="0dp"
+            android:orientation="vertical"
+            android:layout_marginEnd="10dp"
+            android:visibility="gone"
+            app:layout_constraintTop_toTopOf="@id/ivFaceGuide"
+            app:layout_constraintBottom_toBottomOf="@id/ivFaceGuide"
+            app:layout_constraintEnd_toStartOf="@id/ivFaceGuide">
+            <View android:id="@+id/bar16" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:layout_marginBottom="2dp" android:background="#1A1E2A"/>
+            <View android:id="@+id/bar15" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:layout_marginBottom="2dp" android:background="#1A1E2A"/>
+            <View android:id="@+id/bar14" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:layout_marginBottom="2dp" android:background="#1A1E2A"/>
+            <View android:id="@+id/bar13" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:layout_marginBottom="2dp" android:background="#1A1E2A"/>
+            <View android:id="@+id/bar12" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:layout_marginBottom="2dp" android:background="#1A1E2A"/>
+            <View android:id="@+id/bar11" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:layout_marginBottom="2dp" android:background="#1A1E2A"/>
+            <View android:id="@+id/bar10" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:layout_marginBottom="2dp" android:background="#1A1E2A"/>
+            <View android:id="@+id/bar9"  android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:layout_marginBottom="2dp" android:background="#1A1E2A"/>
+            <View android:id="@+id/bar8"  android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:layout_marginBottom="2dp" android:background="#1A1E2A"/>
+            <View android:id="@+id/bar7"  android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:layout_marginBottom="2dp" android:background="#1A1E2A"/>
+            <View android:id="@+id/bar6"  android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:layout_marginBottom="2dp" android:background="#1A1E2A"/>
+            <View android:id="@+id/bar5"  android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:layout_marginBottom="2dp" android:background="#1A1E2A"/>
+            <View android:id="@+id/bar4"  android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:layout_marginBottom="2dp" android:background="#1A1E2A"/>
+            <View android:id="@+id/bar3"  android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:layout_marginBottom="2dp" android:background="#1A1E2A"/>
+            <View android:id="@+id/bar2"  android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:layout_marginBottom="2dp" android:background="#1A1E2A"/>
+            <View android:id="@+id/bar1"  android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:background="#1A1E2A"/>
+        </LinearLayout>
+
+        <!-- Peak meter LEVEL label -->
+        <TextView
+            android:id="@+id/tvMeterLabel"
+            android:layout_width="32dp"
+            android:layout_height="wrap_content"
+            android:text="LEVEL"
+            android:textColor="#3A3F50"
+            android:textSize="8sp"
+            android:fontFamily="@font/jetbrains_mono"
+            android:gravity="center"
+            android:visibility="gone"
+            android:layout_marginEnd="10dp"
+            android:layout_marginTop="4dp"
+            app:layout_constraintTop_toBottomOf="@id/peakMeterContainer"
+            app:layout_constraintEnd_toStartOf="@id/ivFaceGuide"/>
+
+        <!-- Score numeric (peak meter mode) -->
+        <TextView
+            android:id="@+id/tvScoreNumeric"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="80dp"
-            android:text="INICIAR"
-            android:textColor="#FFFFFF"
-            app:backgroundTint="#4CAF50"
-            app:cornerRadius="20dp"
-            app:layout_constraintBottom_toBottomOf="parent"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintStart_toStartOf="parent" />
+            android:text="0.00"
+            android:textColor="#C8AB5A"
+            android:textSize="16sp"
+            android:fontFamily="@font/jetbrains_mono_bold"
+            android:background="@drawable/pill_dark"
+            android:paddingHorizontal="8dp"
+            android:paddingVertical="4dp"
+            android:visibility="gone"
+            android:layout_marginEnd="10dp"
+            android:layout_marginTop="4dp"
+            app:layout_constraintTop_toBottomOf="@id/tvMeterLabel"
+            app:layout_constraintEnd_toStartOf="@id/ivFaceGuide"/>
+
+        <!-- Debug crop thumbnail — floats above bottomControlPanel, right edge -->
+        <ImageView
+            android:id="@+id/ivDebugCrop"
+            android:layout_width="64dp"
+            android:layout_height="64dp"
+            android:background="@drawable/debug_thumb_border"
+            android:padding="2dp"
+            android:scaleType="centerCrop"
+            android:elevation="8dp"
+            android:visibility="gone"
+            android:layout_marginEnd="16dp"
+            android:layout_marginBottom="-24dp"
+            app:layout_constraintBottom_toTopOf="@id/bottomControlPanel"
+            app:layout_constraintEnd_toEndOf="parent"/>
+
+        <!-- Bottom controls panel -->
+        <LinearLayout
+            android:id="@+id/bottomControlPanel"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="@drawable/bottom_panel_gradient"
+            android:paddingTop="16dp"
+            android:paddingBottom="12dp"
+            android:paddingHorizontal="24dp"
+            app:layout_constraintBottom_toBottomOf="parent">
+
+            <!-- Alert count row -->
+            <LinearLayout
+                android:id="@+id/rowAlertCount"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:layout_marginBottom="12dp"
+                android:visibility="gone">
+
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:background="@drawable/pill_dark"
+                    android:paddingHorizontal="12dp"
+                    android:paddingVertical="5dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="⚠ "
+                        android:textColor="#E53935"
+                        android:textSize="11sp"/>
+
+                    <TextView
+                        android:id="@+id/tvLiveAlertCount"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="0"
+                        android:textColor="#E53935"
+                        android:textSize="13sp"
+                        android:fontFamily="@font/jetbrains_mono_bold"/>
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text=" alertas"
+                        android:textColor="#5A5F6E"
+                        android:textSize="11sp"
+                        android:fontFamily="@font/jetbrains_mono"/>
+                </LinearLayout>
+
+                <View android:layout_width="0dp" android:layout_height="1dp" android:layout_weight="1"/>
+
+            </LinearLayout>
+
+            <!-- Start/Stop button -->
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnStartStop"
+                android:layout_width="wrap_content"
+                android:layout_height="52dp"
+                android:layout_gravity="center_horizontal"
+                android:minWidth="240dp"
+                android:text="INICIAR MONITORIZAÇÃO"
+                android:textColor="#FFFFFF"
+                android:textSize="12sp"
+                android:fontFamily="@font/jetbrains_mono_bold"
+                android:letterSpacing="0.06"
+                app:backgroundTint="#1A6B3A"
+                app:strokeColor="#2ECC71"
+                app:strokeWidth="1dp"
+                app:cornerRadius="12dp"/>
+
+        </LinearLayout>
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 
-    <!-- CONFIGURAÇÕES -->
-    <LinearLayout
+    <!-- ═════════════════════════════════════════════ SETTINGS TAB -->
+    <ScrollView
         android:id="@+id/layoutSettings"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:background="#F2121212"
-        android:orientation="vertical"
-        android:padding="24dp"
+        android:layout_height="0dp"
+        android:background="#080A0F"
+        android:fillViewport="true"
         android:visibility="gone"
         android:clickable="true"
-        android:focusable="true">
+        android:focusable="true"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toTopOf="@id/bottomNavigation">
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center_vertical"
-            android:layout_marginTop="20dp"
-            android:layout_marginBottom="32dp">
+            android:orientation="vertical"
+            android:paddingHorizontal="20dp"
+            android:paddingTop="48dp"
+            android:paddingBottom="24dp">
 
-            <TextView
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="Configurações"
-                android:textColor="#FFFFFF"
-                android:textSize="28sp"
-                android:textStyle="bold"/>
-
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/btnHelp"
-                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="❓ Ajuda"
-                android:textColor="#FFEB3B"
-                android:textSize="12sp"
-                app:strokeColor="#FFEB3B"
-                app:cornerRadius="20dp"/>
-        </LinearLayout>
-
-        <TextView
-            android:id="@+id/tvSensitivityLabel"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Rigor da IA: PADRÃO (0.60)"
-            android:textColor="#FFEB3B"
-            android:textStyle="bold" />
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Define o rigor da detector. Quanto mais alto, menos rápido o alarme dispara."
-            android:textColor="#BBBBBB"
-            android:textSize="12sp"
-            android:layout_marginTop="4dp" />
-
-        <SeekBar
-            android:id="@+id/sbSensitivity"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
-            android:max="100"
-            android:progress="60"
-            android:thumbTint="#FFFFFF" />
-
-        <!-- Dica dinâmica de baixa luminosidade -->
-        <TextView
-            android:id="@+id/tvLowLightTip"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:background="#1A1A00"
-            android:padding="10dp"
-            android:layout_marginTop="8dp"
-            android:layout_marginBottom="8dp"
-            android:text="💡 Pouca luz detetada — recomendamos reduzir o rigor para 60–70"
-            android:textColor="#FFEB3B"
-            android:textSize="12sp"
-            android:visibility="gone"/>
-
-        <View android:layout_width="match_parent" android:layout_height="16dp"/>
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:background="#1E1E1E"
-            android:padding="16dp"
-            android:gravity="center_vertical">
-
+            <!-- Header -->
             <LinearLayout
-                android:layout_width="0dp"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:orientation="vertical">
-                <TextView
-                    android:layout_width="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:layout_marginBottom="32dp">
+
+                <LinearLayout
+                    android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:text="Mensagens de Voz"
-                    android:textColor="#FFFFFF"
-                    android:textSize="18sp"
-                    android:textStyle="bold"/>
-                <TextView
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Definições"
+                        android:textColor="#FFFFFF"
+                        android:textSize="28sp"
+                        android:fontFamily="@font/jetbrains_mono_bold"/>
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Ajusta o comportamento do sistema"
+                        android:textColor="#3A3F50"
+                        android:textSize="12sp"
+                        android:fontFamily="@font/jetbrains_mono"
+                        android:layout_marginTop="4dp"/>
+                </LinearLayout>
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnHelp"
+                    style="@style/Widget.MaterialComponents.Button.OutlinedButton"
                     android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Substitui o alarme por frases faladas pela IA."
-                    android:textColor="#BBBBBB"
-                    android:textSize="12sp"/>
+                    android:layout_height="36dp"
+                    android:text="AJUDA"
+                    android:textColor="#C8AB5A"
+                    android:textSize="10sp"
+                    android:fontFamily="@font/jetbrains_mono_bold"
+                    android:letterSpacing="0.1"
+                    android:minWidth="0dp"
+                    android:paddingHorizontal="14dp"
+                    app:strokeColor="#3A3020"
+                    app:cornerRadius="8dp"/>
             </LinearLayout>
 
-            <Switch
-                android:id="@+id/switchVoiceMode"
+            <!-- ── SECTION: Detection Sensitivity ── -->
+            <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:thumbTint="#FFEB3B"/>
+                android:text="DETEÇÃO"
+                android:textColor="#3A3F50"
+                android:textSize="10sp"
+                android:fontFamily="@font/jetbrains_mono"
+                android:letterSpacing="0.15"
+                android:layout_marginBottom="12dp"/>
+
+            <!-- Sensitivity card -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:background="@drawable/settings_card"
+                android:padding="20dp"
+                android:layout_marginBottom="8dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:layout_marginBottom="6dp">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="Rigor da IA"
+                        android:textColor="#FFFFFF"
+                        android:textSize="15sp"
+                        android:fontFamily="@font/jetbrains_mono"/>
+
+                    <TextView
+                        android:id="@+id/tvSensitivityLabel"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="0.60"
+                        android:textColor="#C8AB5A"
+                        android:textSize="13sp"
+                        android:fontFamily="@font/jetbrains_mono_bold"
+                        android:background="@drawable/pill_amber"
+                        android:paddingHorizontal="10dp"
+                        android:paddingVertical="4dp"/>
+                </LinearLayout>
+
+                <TextView
+                    android:id="@+id/tvSensitivityMode"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Modo EQUILIBRADO"
+                    android:textColor="#5A5F6E"
+                    android:textSize="11sp"
+                    android:fontFamily="@font/jetbrains_mono"
+                    android:layout_marginBottom="16dp"/>
+
+                <SeekBar
+                    android:id="@+id/sbSensitivity"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:max="100"
+                    android:progress="60"
+                    android:progressTint="#C8AB5A"
+                    android:thumbTint="#C8AB5A"
+                    android:progressBackgroundTint="#1E2230"/>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:layout_marginTop="8dp">
+                    <TextView android:layout_width="0dp" android:layout_height="wrap_content"
+                        android:layout_weight="1" android:text="RIGOROSO"
+                        android:textColor="#3A3F50" android:textSize="9sp"
+                        android:fontFamily="@font/jetbrains_mono"/>
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:text="RELAXADO"
+                        android:textColor="#3A3F50" android:textSize="9sp"
+                        android:fontFamily="@font/jetbrains_mono"/>
+                </LinearLayout>
+            </LinearLayout>
+
+            <!-- Low light tip -->
+            <LinearLayout
+                android:id="@+id/tvLowLightTip"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:background="@drawable/warning_card"
+                android:padding="14dp"
+                android:layout_marginBottom="24dp"
+                android:gravity="center_vertical"
+                android:visibility="gone">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="⚡"
+                    android:textSize="16sp"
+                    android:layout_marginEnd="10dp"/>
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Pouca luz — recomendamos reduzir o rigor para 30–40"
+                    android:textColor="#C8AB5A"
+                    android:textSize="12sp"
+                    android:fontFamily="@font/jetbrains_mono"/>
+            </LinearLayout>
+
+            <!-- ── SECTION: Score Visualization ── -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="VISUALIZAÇÃO DO SCORE"
+                android:textColor="#3A3F50"
+                android:textSize="10sp"
+                android:fontFamily="@font/jetbrains_mono"
+                android:letterSpacing="0.15"
+                android:layout_marginBottom="12dp"/>
+
+            <!-- Score viz card -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:background="@drawable/settings_card"
+                android:padding="20dp"
+                android:layout_marginBottom="24dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Tipo de indicador"
+                    android:textColor="#FFFFFF"
+                    android:textSize="15sp"
+                    android:fontFamily="@font/jetbrains_mono"
+                    android:layout_marginBottom="4dp"/>
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Como o score de fadiga é apresentado durante a monitorização."
+                    android:textColor="#5A5F6E"
+                    android:textSize="11sp"
+                    android:fontFamily="@font/jetbrains_mono"
+                    android:layout_marginBottom="16dp"/>
+
+                <!-- Option: Bar -->
+                <LinearLayout
+                    android:id="@+id/optionScoreBar"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:background="@drawable/option_selected"
+                    android:paddingHorizontal="14dp"
+                    android:layout_marginBottom="8dp">
+
+                    <View
+                        android:id="@+id/radioBar"
+                        android:layout_width="16dp"
+                        android:layout_height="16dp"
+                        android:background="@drawable/radio_on"
+                        android:layout_marginEnd="12dp"/>
+
+                    <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content"
+                        android:layout_weight="1" android:orientation="vertical">
+                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                            android:text="Barra de Progresso" android:textColor="#FFFFFF"
+                            android:textSize="13sp" android:fontFamily="@font/jetbrains_mono"/>
+                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                            android:text="Indicador horizontal simples"
+                            android:textColor="#5A5F6E" android:textSize="10sp"
+                            android:fontFamily="@font/jetbrains_mono"/>
+                    </LinearLayout>
+
+                    <!-- Mini preview -->
+                    <ProgressBar
+                        style="?android:attr/progressBarStyleHorizontal"
+                        android:layout_width="40dp"
+                        android:layout_height="6dp"
+                        android:max="100" android:progress="65"
+                        android:progressTint="#C8AB5A"
+                        android:progressBackgroundTint="#1E2230"/>
+                </LinearLayout>
+
+                <!-- Option: Peak Meter -->
+                <LinearLayout
+                    android:id="@+id/optionScoreMeter"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:background="@drawable/option_idle"
+                    android:paddingHorizontal="14dp">
+
+                    <View
+                        android:id="@+id/radioMeter"
+                        android:layout_width="16dp"
+                        android:layout_height="16dp"
+                        android:background="@drawable/radio_off"
+                        android:layout_marginEnd="12dp"/>
+
+                    <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content"
+                        android:layout_weight="1" android:orientation="vertical">
+                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                            android:text="Peak Meter" android:textColor="#FFFFFF"
+                            android:textSize="13sp" android:fontFamily="@font/jetbrains_mono"/>
+                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                            android:text="Colunas de LEDs estilo VU meter"
+                            android:textColor="#5A5F6E" android:textSize="10sp"
+                            android:fontFamily="@font/jetbrains_mono"/>
+                    </LinearLayout>
+
+                    <!-- Mini peak meter preview (3 bars) -->
+                    <LinearLayout android:layout_width="32dp" android:layout_height="24dp"
+                        android:orientation="horizontal" android:gravity="bottom">
+                        <View android:layout_width="0dp" android:layout_height="8dp"
+                            android:layout_weight="1" android:background="#2ECC71" android:layout_marginEnd="2dp"/>
+                        <View android:layout_width="0dp" android:layout_height="16dp"
+                            android:layout_weight="1" android:background="#C8AB5A" android:layout_marginEnd="2dp"/>
+                        <View android:layout_width="0dp" android:layout_height="24dp"
+                            android:layout_weight="1" android:background="#E53935"/>
+                    </LinearLayout>
+                </LinearLayout>
+
+            </LinearLayout>
+
+            <!-- ── SECTION: Alerts ── -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="ALERTAS"
+                android:textColor="#3A3F50"
+                android:textSize="10sp"
+                android:fontFamily="@font/jetbrains_mono"
+                android:letterSpacing="0.15"
+                android:layout_marginBottom="12dp"/>
+
+            <!-- Voice alerts toggle card -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:background="@drawable/settings_card"
+                android:padding="20dp"
+                android:layout_marginBottom="24dp">
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Alertas por Voz"
+                        android:textColor="#FFFFFF"
+                        android:textSize="15sp"
+                        android:fontFamily="@font/jetbrains_mono"/>
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Substitui o alarme sonoro por TTS"
+                        android:textColor="#5A5F6E"
+                        android:textSize="11sp"
+                        android:fontFamily="@font/jetbrains_mono"
+                        android:layout_marginTop="3dp"/>
+                </LinearLayout>
+
+                <Switch
+                    android:id="@+id/switchVoiceMode"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:thumbTint="#C8AB5A"
+                    android:trackTint="#2A2210"/>
+            </LinearLayout>
+
+            <!-- App version -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="DROWSE v3.0 — Alpha Build"
+                android:textColor="#1E2230"
+                android:textSize="10sp"
+                android:fontFamily="@font/jetbrains_mono"
+                android:gravity="center"
+                android:layout_marginTop="8dp"/>
+
         </LinearLayout>
+    </ScrollView>
 
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="24dp"
-            android:text="Dica: Garanta boa iluminação para evitar falsos positivos."
-            android:textColor="#666666"
-            android:textSize="11sp"
-            android:gravity="center"/>
-
-    </LinearLayout>
-
-    <!-- RELATÓRIOS -->
+    <!-- ═════════════════════════════════════════════ HISTORY TAB -->
     <LinearLayout
         android:id="@+id/layoutHistory"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:background="#F2121212"
+        android:layout_height="0dp"
+        android:background="#080A0F"
         android:orientation="vertical"
         android:visibility="gone"
         android:clickable="true"
-        android:focusable="true">
+        android:focusable="true"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toTopOf="@id/bottomNavigation">
 
+        <!-- Header -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
             android:paddingHorizontal="20dp"
-            android:paddingTop="28dp"
-            android:paddingBottom="12dp"
+            android:paddingTop="48dp"
+            android:paddingBottom="20dp"
             android:gravity="center_vertical">
 
             <LinearLayout
@@ -229,43 +752,56 @@
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:orientation="vertical">
+
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="Relatórios"
                     android:textColor="#FFFFFF"
-                    android:textSize="26sp"
-                    android:textStyle="bold"/>
+                    android:textSize="28sp"
+                    android:fontFamily="@font/jetbrains_mono_bold"/>
+
                 <TextView
                     android:id="@+id/tvSessionMeta"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="Sem sessão ativa"
-                    android:textColor="#888888"
-                    android:textSize="12sp"
-                    android:layout_marginTop="2dp"/>
+                    android:textColor="#3A3F50"
+                    android:textSize="11sp"
+                    android:fontFamily="@font/jetbrains_mono"
+                    android:layout_marginTop="4dp"/>
             </LinearLayout>
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnClearHistory"
                 style="@style/Widget.MaterialComponents.Button.OutlinedButton"
                 android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Limpar"
-                android:textColor="#EF5350"
-                android:textSize="12sp"
-                app:strokeColor="#EF5350"
-                app:cornerRadius="20dp"/>
+                android:layout_height="36dp"
+                android:text="LIMPAR"
+                android:textColor="#8B2020"
+                android:textSize="10sp"
+                android:fontFamily="@font/jetbrains_mono_bold"
+                android:letterSpacing="0.1"
+                android:minWidth="0dp"
+                android:paddingHorizontal="14dp"
+                app:strokeColor="#2A1010"
+                app:cornerRadius="8dp"/>
         </LinearLayout>
 
+        <!-- Divider -->
+        <View android:layout_width="match_parent" android:layout_height="1dp"
+            android:background="#0E1018" android:layout_marginHorizontal="20dp"/>
+
+        <!-- Current session card -->
         <LinearLayout
             android:id="@+id/cardCurrentSession"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginHorizontal="16dp"
-            android:layout_marginBottom="8dp"
-            android:background="#1E2A1E"
             android:orientation="vertical"
+            android:background="@drawable/current_session_card"
+            android:layout_marginHorizontal="20dp"
+            android:layout_marginTop="16dp"
+            android:layout_marginBottom="8dp"
             android:padding="16dp"
             android:visibility="gone">
 
@@ -273,92 +809,113 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
-                android:gravity="center_vertical">
+                android:gravity="center_vertical"
+                android:layout_marginBottom="16dp">
+
+                <View
+                    android:layout_width="6dp"
+                    android:layout_height="6dp"
+                    android:background="@drawable/dot_green"
+                    android:layout_marginEnd="8dp"/>
+
                 <TextView
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:text="● SESSÃO ACTUAL"
-                    android:textColor="#4CAF50"
-                    android:textSize="11sp"
-                    android:textStyle="bold"
+                    android:text="SESSÃO ACTUAL"
+                    android:textColor="#2ECC71"
+                    android:textSize="10sp"
+                    android:fontFamily="@font/jetbrains_mono"
                     android:letterSpacing="0.1"/>
+
                 <TextView
                     android:id="@+id/tvCurrentTime"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="0s"
-                    android:textColor="#888888"
-                    android:textSize="12sp"/>
+                    android:textColor="#3A3F50"
+                    android:textSize="11sp"
+                    android:fontFamily="@font/jetbrains_mono"/>
             </LinearLayout>
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:layout_marginTop="12dp"
-                android:gravity="center">
+                android:orientation="horizontal">
 
                 <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content"
                     android:layout_weight="1" android:orientation="vertical" android:gravity="center">
                     <TextView android:id="@+id/tvCurrentAlerts"
                         android:layout_width="wrap_content" android:layout_height="wrap_content"
-                        android:text="0" android:textColor="#FF5722" android:textSize="32sp" android:textStyle="bold"/>
+                        android:text="0" android:textColor="#E53935" android:textSize="32sp"
+                        android:fontFamily="@font/jetbrains_mono_bold"/>
                     <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                        android:text="Alertas" android:textColor="#888888" android:textSize="11sp"/>
+                        android:text="alertas" android:textColor="#3A3F50" android:textSize="10sp"
+                        android:fontFamily="@font/jetbrains_mono"/>
                 </LinearLayout>
 
-                <View android:layout_width="1dp" android:layout_height="40dp" android:background="#333333"/>
+                <View android:layout_width="1dp" android:layout_height="48dp"
+                    android:background="#0E1018"/>
 
                 <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content"
                     android:layout_weight="1" android:orientation="vertical" android:gravity="center">
                     <TextView android:id="@+id/tvCurrentAvgScore"
                         android:layout_width="wrap_content" android:layout_height="wrap_content"
-                        android:text="—" android:textColor="#FFEB3B" android:textSize="32sp" android:textStyle="bold"/>
+                        android:text="—" android:textColor="#C8AB5A" android:textSize="32sp"
+                        android:fontFamily="@font/jetbrains_mono_bold"/>
                     <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                        android:text="Score Médio" android:textColor="#888888" android:textSize="11sp"/>
+                        android:text="score médio" android:textColor="#3A3F50" android:textSize="10sp"
+                        android:fontFamily="@font/jetbrains_mono"/>
                 </LinearLayout>
 
-                <View android:layout_width="1dp" android:layout_height="40dp" android:background="#333333"/>
+                <View android:layout_width="1dp" android:layout_height="48dp"
+                    android:background="#0E1018"/>
 
                 <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content"
                     android:layout_weight="1" android:orientation="vertical" android:gravity="center">
                     <TextView android:id="@+id/tvCurrentDuration"
                         android:layout_width="wrap_content" android:layout_height="wrap_content"
-                        android:text="0s" android:textColor="#2196F3" android:textSize="32sp" android:textStyle="bold"/>
+                        android:text="0s" android:textColor="#2A7AE4" android:textSize="32sp"
+                        android:fontFamily="@font/jetbrains_mono_bold"/>
                     <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                        android:text="Duração" android:textColor="#888888" android:textSize="11sp"/>
+                        android:text="duração" android:textColor="#3A3F50" android:textSize="10sp"
+                        android:fontFamily="@font/jetbrains_mono"/>
                 </LinearLayout>
             </LinearLayout>
         </LinearLayout>
 
+        <!-- History section label -->
         <TextView
             android:id="@+id/tvHistoryLabel"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="SESSÕES ANTERIORES"
-            android:textColor="#555555"
-            android:textSize="11sp"
-            android:letterSpacing="0.12"
+            android:textColor="#3A3F50"
+            android:textSize="10sp"
+            android:fontFamily="@font/jetbrains_mono"
+            android:letterSpacing="0.15"
             android:layout_marginHorizontal="20dp"
-            android:layout_marginTop="8dp"
+            android:layout_marginTop="20dp"
             android:layout_marginBottom="8dp"
             android:visibility="gone"/>
 
+        <!-- Sessions scroll -->
         <ScrollView
             android:layout_width="match_parent"
             android:layout_height="0dp"
             android:layout_weight="1"
-            android:paddingHorizontal="16dp"
+            android:paddingHorizontal="20dp"
+            android:paddingBottom="8dp"
             android:clipToPadding="false">
+
             <LinearLayout
                 android:id="@+id/llSessionCards"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:paddingBottom="16dp"/>
+                android:orientation="vertical"/>
         </ScrollView>
 
+        <!-- Empty state -->
         <LinearLayout
             android:id="@+id/layoutEmptyState"
             android:layout_width="match_parent"
@@ -367,38 +924,42 @@
             android:orientation="vertical"
             android:gravity="center"
             android:visibility="gone">
-            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                android:text="😴" android:textSize="48sp"/>
-            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                android:text="Nenhum relatório ainda"
-                android:textColor="#555555" android:textSize="16sp" android:layout_marginTop="12dp"/>
-            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                android:text="Inicia a monitorização para registar a tua primeira sessão."
-                android:textColor="#444444" android:textSize="13sp" android:gravity="center"
-                android:layout_marginTop="8dp" android:layout_marginHorizontal="40dp"/>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="◉"
+                android:textColor="#1A1F2E"
+                android:textSize="64sp"/>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Sem registos"
+                android:textColor="#3A3F50"
+                android:textSize="16sp"
+                android:fontFamily="@font/jetbrains_mono"
+                android:layout_marginTop="12dp"/>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Inicia a monitorização para&#10;registar a primeira sessão."
+                android:textColor="#2A2F3E"
+                android:textSize="12sp"
+                android:fontFamily="@font/jetbrains_mono"
+                android:gravity="center"
+                android:layout_marginTop="8dp"/>
         </LinearLayout>
 
     </LinearLayout>
 
-    <!-- Debug crop arrastável -->
-    <ImageView
-        android:id="@+id/ivDebugCrop"
-        android:layout_width="110dp"
-        android:layout_height="110dp"
-        android:layout_margin="16dp"
-        android:background="#FF0000"
-        android:padding="2dp"
-        android:scaleType="centerCrop"
-        android:elevation="10dp"
-        app:layout_constraintBottom_toTopOf="@id/bottomNavigation"
-        app:layout_constraintEnd_toEndOf="parent" />
-
-    <!-- CAMERA LOADING OVERLAY -->
+    <!-- ═════════════════════════════════════════════ CAMERA LOADING OVERLAY -->
     <FrameLayout
         android:id="@+id/cameraLoadingOverlay"
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:background="#CC000000"
+        android:background="#FF080A0F"
         android:elevation="20dp"
         android:visibility="visible"
         app:layout_constraintTop_toTopOf="parent"
@@ -412,29 +973,32 @@
             android:gravity="center">
 
             <ProgressBar
-                android:layout_width="56dp"
-                android:layout_height="56dp"
-                android:indeterminateTint="#FFEB3B"/>
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:indeterminateTint="#C8AB5A"/>
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="A iniciar câmara…"
-                android:textColor="#CCCCCC"
-                android:textSize="14sp"
-                android:layout_marginTop="16dp"/>
+                android:text="A INICIAR CÂMARA"
+                android:textColor="#3A3F50"
+                android:textSize="11sp"
+                android:fontFamily="@font/jetbrains_mono"
+                android:letterSpacing="0.1"
+                android:layout_marginTop="20dp"/>
         </LinearLayout>
     </FrameLayout>
 
+    <!-- ═════════════════════════════════════════════ BOTTOM NAV -->
     <com.google.android.material.bottomnavigation.BottomNavigationView
         android:id="@+id/bottomNavigation"
         android:layout_width="match_parent"
         android:layout_height="64dp"
-        android:background="#1E1E1E"
-        app:itemIconTint="#FFFFFF"
-        app:itemTextColor="#FFFFFF"
+        android:background="#0C0E16"
+        app:itemIconTint="@color/nav_icon_tint"
+        app:itemTextColor="@color/nav_icon_tint"
         app:menu="@menu/bottom_nav_menu"
-        app:labelVisibilityMode="unlabeled"
+        app:labelVisibilityMode="selected"
         app:layout_constraintBottom_toBottomOf="parent" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>

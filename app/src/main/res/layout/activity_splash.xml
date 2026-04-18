@@ -1,11 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- activity_splash.xml — Redesigned professional splash -->
 <androidx.constraintlayout.widget.ConstraintLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#121212">
+    android:background="#080A0F">
 
+    <!-- Subtle grid background texture (drawn via shape) -->
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@drawable/splash_grid"
+        android:alpha="0.03"/>
+
+    <!-- Centre content -->
     <LinearLayout
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
@@ -16,39 +25,63 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">
 
-        <!-- Usa o ícone do app -->
-        <ImageView
-            android:layout_width="96dp"
-            android:layout_height="96dp"
-            android:src="@mipmap/ic_launcher_round"
-            android:layout_marginBottom="20dp"/>
+        <!-- Icon badge -->
+        <FrameLayout
+            android:layout_width="80dp"
+            android:layout_height="80dp"
+            android:background="@drawable/splash_icon_bg"
+            android:layout_gravity="center"
+            android:layout_marginBottom="24dp">
 
+            <ImageView
+                android:layout_width="44dp"
+                android:layout_height="44dp"
+                android:layout_gravity="center"
+                android:src="@mipmap/ic_launcher_round"/>
+        </FrameLayout>
+
+        <!-- Wordmark -->
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Detector Sonolência"
+            android:text="DROWSE"
             android:textColor="#FFFFFF"
-            android:textSize="28sp"
-            android:textStyle="bold"
-            android:letterSpacing="0.05"/>
+            android:textSize="32sp"
+            android:fontFamily="@font/jetbrains_mono_bold"
+            android:letterSpacing="0.15"
+            android:layout_marginBottom="8dp"/>
 
+        <!-- Tagline -->
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Deteção de fadiga ao volante"
-            android:textColor="#888888"
-            android:textSize="13sp"
-            android:layout_marginTop="6dp"/>
+            android:text="DETEÇÃO DE FADIGA AO VOLANTE"
+            android:textColor="#3A3F50"
+            android:textSize="10sp"
+            android:fontFamily="@font/jetbrains_mono"
+            android:letterSpacing="0.2"/>
+
     </LinearLayout>
 
-    <!-- Versão no fundo -->
+    <!-- Amber accent line at bottom -->
+    <View
+        android:layout_width="40dp"
+        android:layout_height="2dp"
+        android:background="#C8AB5A"
+        android:layout_marginBottom="80dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"/>
+
+    <!-- Version -->
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="v3.0 — Alpha"
-        android:textColor="#444444"
-        android:textSize="11sp"
-        android:layout_marginBottom="24dp"
+        android:textColor="#1E2230"
+        android:textSize="10sp"
+        android:fontFamily="@font/jetbrains_mono"
+        android:layout_marginBottom="28dp"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"/>
