@@ -24,6 +24,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 public class FatigueClassifier {
 
+
     private static final String TAG        = "FatigueClassifier";
     private static final int    INPUT_SIZE = 168;
     private static final int    CHANNELS   = 3;
