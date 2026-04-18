@@ -14,7 +14,6 @@ public final class AppConstants {
     public static final long   VOICE_COOLDOWN_MS      = 5000L;
     public static final float  DEFAULT_CONFIDENCE     = 0.60f;
     public static final int    DEFAULT_SENSITIVITY    = 60;
-
     public static final int    SMOOTH_WINDOW          = 5;
 
     // Câmara
