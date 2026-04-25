@@ -35,7 +35,7 @@ public class OnboardingAdapter extends RecyclerView.Adapter<OnboardingAdapter.St
                     "Posiciona o telemóvel",
                     "Fixa o dispositivo num suporte de tablier ou viseira, com a câmara frontal apontada "
                             + "directamente ao teu rosto. Mantém uma distância de 40–80 cm. O rosto deve ficar "
-                            + "dentro do rectângulo guia que aparece no ecrã — a IA só analisa o que está dentro desse rectângulo.",
+                            + "dentro do campo visivel da camara do telemovel.",
                     0xFF0D1A14
             ),
             new OnboardingStep(
@@ -44,7 +44,7 @@ public class OnboardingAdapter extends RecyclerView.Adapter<OnboardingAdapter.St
                     "Iluminação",
                     "O sistema funciona em condições de pouca luz, mas pode gerar mais avisos falsos. "
                             + "Para melhores resultados, garante boa iluminação natural ou interior. "
-                            + "Se estiveres num ambiente muito escuro, considera reduzir o rigor da IA nas Definições.",
+                            + "Se estiveres num ambiente muito escuro, considera aumentar o rigor da IA nas Definições.",
                     0xFF1A1400
             ),
             new OnboardingStep(

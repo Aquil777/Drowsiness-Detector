@@ -83,28 +83,29 @@ public class MainActivity extends AppCompatActivity {
     private int scoreCount = 0;
 
     // ── UI refs ───────────────────────────────────────────────────────────────
-    private PreviewView     viewFinder;
-    private TextView        tvStatus;
-    private ProgressBar     pbLiveScore;
-    private ImageView       ivDebugCrop;
-    private MaterialButton  btnStartStop;
-    private ScrollView      layoutSettings;
-    private LinearLayout    layoutHistory;
+    private PreviewView      viewFinder;
+    private TextView         tvStatus;
+    private ProgressBar      pbLiveScore;
+    private ImageView        ivDebugCrop;
+    private View ivFaceOverlay; // bounding box dinâmica do rosto
+    private MaterialButton   btnStartStop;
+    private ScrollView       layoutSettings;
+    private LinearLayout     layoutHistory;
     private ConstraintLayout layoutMonitoring;
-    private FrameLayout     cameraLoadingOverlay;
-    private LinearLayout    peakMeterContainer;
-    private TextView        tvScoreNumeric;
-    private TextView        tvMeterLabel;
-    private TextView        tvLiveAlertCount;
-    private LinearLayout    rowAlertCount;
-    private LinearLayout    rowScoreBar;
-    private TextView        tvScoreInPanel;
+    private FrameLayout      cameraLoadingOverlay;
+    private LinearLayout     peakMeterContainer;
+    private TextView         tvScoreNumeric;
+    private TextView         tvMeterLabel;
+    private TextView         tvLiveAlertCount;
+    private LinearLayout     rowAlertCount;
+    private LinearLayout     rowScoreBar;
+    private TextView         tvScoreInPanel;
 
     // Settings refs
-    private LinearLayout    optionScoreBar;
-    private LinearLayout    optionScoreMeter;
-    private View            radioBar;
-    private View            radioMeter;
+    private LinearLayout optionScoreBar;
+    private LinearLayout optionScoreMeter;
+    private View         radioBar;
+    private View         radioMeter;
 
     // ── Camera ────────────────────────────────────────────────────────────────
     private ImageAnalysis   imageAnalysis;
@@ -112,6 +113,8 @@ public class MainActivity extends AppCompatActivity {
 
     // ── AI ────────────────────────────────────────────────────────────────────
     private FatigueClassifier classifier;
+
+    // ── Calibração em tempo real (v6) ─────────────────────────────────────────
 
     // ── Audio ─────────────────────────────────────────────────────────────────
     private MediaPlayer  mediaPlayer;
@@ -155,13 +158,18 @@ public class MainActivity extends AppCompatActivity {
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
         bindViews();
+        ivFaceOverlay = findViewById(R.id.ivFaceOverlay);
         buildMeterBars();
 
         sessionRepository = new SessionRepository(this);
 
-        // initClassifier BEFORE requestCameraPermission to ensure cameraExecutor exists
+        // initClassifier ANTES de requestCameraPermission para garantir que
+        // cameraExecutor existe quando a câmara iniciar.
         initClassifier();
         initAudio();
+
+        // Carregar CLAHE guardado e criar o painel de calibração
+        initCalibration();
 
         setupNavigation();
         setupSeekBar();
@@ -173,6 +181,7 @@ public class MainActivity extends AppCompatActivity {
 
         btnStartStop.setOnClickListener(v -> toggleMonitoring());
         setMonitoringState(false);
+        if (ivFaceOverlay != null) ivFaceOverlay.setVisibility(View.GONE);
 
         requestCameraPermission();
 
@@ -188,9 +197,15 @@ public class MainActivity extends AppCompatActivity {
         SharedPreferences prefs = getSharedPreferences(AppConstants.PREFS_NAME, MODE_PRIVATE);
         useVoiceAlerts = prefs.getBoolean(AppConstants.KEY_USE_VOICE, false);
         scoreVizMode   = prefs.getInt("scoreVizMode", VIZ_BAR);
+
         Switch swVoice = findViewById(R.id.switchVoiceMode);
         if (swVoice != null) swVoice.setChecked(useVoiceAlerts);
         applyScoreVizMode();
+
+        // Restaurar CLAHE ao voltar à app (ex: após minimizar)
+        float restoredClip = prefs.getFloat(AppConstants.KEY_CLAHE_CLIP,
+                AppConstants.DEFAULT_CLAHE_CLIP);
+        if (classifier != null) classifier.setClaheClipLimit(restoredClip);
     }
 
     @Override
@@ -264,6 +279,23 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    /**
+     * Carrega o clipLimit guardado, aplica-o ao classificador e cria o
+     * CalibrationPanel que vai aparecer como BottomSheet na aba da câmara.
+     */
+    private void initCalibration() {
+        SharedPreferences prefs = getSharedPreferences(AppConstants.PREFS_NAME, MODE_PRIVATE);
+        float savedClip = prefs.getFloat(AppConstants.KEY_CLAHE_CLIP,
+                AppConstants.DEFAULT_CLAHE_CLIP);
+        if (classifier != null) classifier.setClaheClipLimit(savedClip);
+    }
+
+    /**
+     * Liga o botão "⚙ Calibrar" (R.id.btnCalibration) ao BottomSheet.
+     * O botão deve estar no layout da aba de monitorização, visível durante
+     * a sessão ativa. Se o id não existir no XML, o método não faz nada.
+     */
+
     private void requestCameraPermission() {
         if (allPermissionsGranted()) {
             startCamera();
@@ -295,9 +327,7 @@ public class MainActivity extends AppCompatActivity {
         getSharedPreferences(AppConstants.PREFS_NAME, MODE_PRIVATE)
                 .edit().putInt("scoreVizMode", mode).apply();
         applyScoreVizMode();
-        if (isMonitoring) {
-            showScoreWidgets(true);
-        }
+        if (isMonitoring) showScoreWidgets(true);
     }
 
     private void applyScoreVizMode() {
@@ -350,9 +380,7 @@ public class MainActivity extends AppCompatActivity {
             int id = item.getItemId();
             if (id == R.id.nav_monitoring) {
                 layoutMonitoring.setVisibility(View.VISIBLE);
-                if (isMonitoring) {
-                    showScoreWidgets(true);
-                }
+                if (isMonitoring) showScoreWidgets(true);
             } else if (id == R.id.nav_history) {
                 layoutHistory.setVisibility(View.VISIBLE);
                 refreshHistoryTab();
@@ -463,7 +491,7 @@ public class MainActivity extends AppCompatActivity {
         isMonitoring = active;
 
         if (active) {
-            currentSession = new DriveSession();
+            currentSession   = new DriveSession();
             fatigueStartTime = 0;
             resetScoreBuffer();
 
@@ -542,18 +570,27 @@ public class MainActivity extends AppCompatActivity {
             sessionTimerHandler.post(sessionTimerRunnable);
 
             if (imageAnalysis != null) {
-                imageAnalysis.setAnalyzer(cameraExecutor, image -> runOnUiThread(() -> {
-                    if (!isMonitoring || classifier == null) { image.close(); return; }
-                    Bitmap bitmap = viewFinder.getBitmap();
-                    if (bitmap == null) { image.close(); return; }
-                    Bitmap cropped = centerCrop(bitmap);
-                    if (ivDebugCrop != null) ivDebugCrop.setImageBitmap(cropped);
+                imageAnalysis.setAnalyzer(cameraExecutor, image -> {
                     image.close();
-                    cameraExecutor.execute(() -> {
-                        float score = classifier.analyzeImage(cropped);
-                        runOnUiThread(() -> processFrame(score));
+                    if (!isMonitoring || classifier == null) return;
+
+                    runOnUiThread(() -> {
+                        if (!isMonitoring || classifier == null) return;
+                        Bitmap bitmap = viewFinder.getBitmap();
+                        if (bitmap == null) return;
+
+                        cameraExecutor.execute(() -> {
+                            float score = classifier.analyzeImage(bitmap);
+                            Bitmap debugBmp = classifier.getLastDebugBitmap();
+                            runOnUiThread(() -> {
+                                if (ivDebugCrop != null && debugBmp != null) {
+                                    ivDebugCrop.setImageBitmap(debugBmp);
+                                }
+                                processFrame(score);
+                            });
+                        });
                     });
-                }));
+                });
             }
         }, 3000);
     }
@@ -565,6 +602,9 @@ public class MainActivity extends AppCompatActivity {
     private void processFrame(float score) {
         if (!isMonitoring) return;
 
+        // Atualizar posição da face overlay
+        updateFaceOverlay();
+
         if (score == FatigueClassifier.NO_FACE) {
             resetScoreBuffer();
             tvStatus.setText("ROSTO NÃO DETETADO");
@@ -573,8 +613,10 @@ public class MainActivity extends AppCompatActivity {
             updatePeakMeter(0f);
             if (pbLiveScore    != null) pbLiveScore.setProgress(0);
             if (tvScoreNumeric != null) tvScoreNumeric.setText("—");
-            if (tvScoreInPanel != null) { tvScoreInPanel.setText("—"); tvScoreInPanel.setTextColor(0xFF3A3F50); }
-            if (ivDebugCrop    != null) ivDebugCrop.setBackgroundColor(0xFF2A200A);
+            if (tvScoreInPanel != null) {
+                tvScoreInPanel.setText("—");
+                tvScoreInPanel.setTextColor(0xFF3A3F50);
+            }
             stopAlarm();
             fatigueStartTime = 0;
             return;
@@ -587,6 +629,57 @@ public class MainActivity extends AppCompatActivity {
         }
 
         updateUI(smoothScore(score));
+    }
+
+    private void updateFaceOverlay() {
+        if (ivFaceOverlay == null || viewFinder == null || classifier == null) return;
+
+        android.graphics.Rect faceRect = classifier.getLastFaceRect();
+        if (faceRect == null) {
+            ivFaceOverlay.setVisibility(View.GONE);
+            return;
+        }
+
+        // Escalar as coordenadas do frame original para as coordenadas do viewFinder
+        Bitmap lastFrame = viewFinder.getBitmap();
+        if (lastFrame == null) {
+            ivFaceOverlay.setVisibility(View.GONE);
+            return;
+        }
+
+        float scaleX = (float) viewFinder.getWidth()  / lastFrame.getWidth();
+        float scaleY = (float) viewFinder.getHeight() / lastFrame.getHeight();
+
+        int left   = (int)(faceRect.left   * scaleX);
+        int top    = (int)(faceRect.top    * scaleY);
+        int right  = (int)(faceRect.right  * scaleX);
+        int bottom = (int)(faceRect.bottom * scaleY);
+
+        int w = right  - left;
+        int h = bottom - top;
+
+        // Posicionar a overlay sobre o viewFinder
+        // O viewFinder começa no topo do layoutMonitoring
+        int[] vfLoc = new int[2];
+        viewFinder.getLocationOnScreen(vfLoc);
+        int[] overlayParentLoc = new int[2];
+        ((View) ivFaceOverlay.getParent()).getLocationOnScreen(overlayParentLoc);
+
+        int offsetX = vfLoc[0] - overlayParentLoc[0];
+        int offsetY = vfLoc[1] - overlayParentLoc[1];
+
+        android.widget.FrameLayout.LayoutParams lp =
+                (android.widget.FrameLayout.LayoutParams) ivFaceOverlay.getLayoutParams();
+        if (lp == null) {
+            lp = new android.widget.FrameLayout.LayoutParams(w, h);
+        } else {
+            lp.width  = w;
+            lp.height = h;
+        }
+        lp.leftMargin = left  + offsetX;
+        lp.topMargin  = top   + offsetY;
+        ivFaceOverlay.setLayoutParams(lp);
+        ivFaceOverlay.setVisibility(View.VISIBLE);
     }
 
     private void updateUI(float score) {
@@ -631,7 +724,8 @@ public class MainActivity extends AppCompatActivity {
             tvStatus.setBackgroundResource(R.drawable.status_chip_ok);
             tvStatus.setTextColor(0xFF2ECC71);
             if (ivDebugCrop != null) {
-                ivDebugCrop.setBackgroundColor(score > (confidenceThreshold * 0.7f) ? 0xFF2A2000 : 0xFF0A2010);
+                ivDebugCrop.setBackgroundColor(
+                        score > (confidenceThreshold * 0.7f) ? 0xFF2A2000 : 0xFF0A2010);
             }
             stopAlarm();
         }
@@ -1000,11 +1094,6 @@ public class MainActivity extends AppCompatActivity {
     // Utilities
     // =========================================================================
 
-    private Bitmap centerCrop(Bitmap src) {
-        int w = src.getWidth(), h = src.getHeight(), edge = Math.min(w, h);
-        return Bitmap.createBitmap(src, (w - edge) / 2, (h - edge) / 2, edge, edge);
-    }
-
     private boolean allPermissionsGranted() {
         return ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
                 == PackageManager.PERMISSION_GRANTED;
@@ -1026,7 +1115,6 @@ public class MainActivity extends AppCompatActivity {
         super.onRequestPermissionsResult(code, perms, results);
         if (code == AppConstants.CAMERA_PERMISSION_CODE) {
             if (results.length > 0 && results[0] == PackageManager.PERMISSION_GRANTED) {
-                // Small delay to ensure cameraExecutor is ready
                 new Handler(Looper.getMainLooper()).postDelayed(
                         this::startCamera, AppConstants.CAMERA_INIT_DELAY_MS);
             } else {
