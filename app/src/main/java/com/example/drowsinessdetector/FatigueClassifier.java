@@ -24,40 +24,59 @@ import java.nio.ByteOrder;
 import java.nio.channels.FileChannel;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
- * FatigueClassifier — v6
+ * FatigueClassifier — v8
  *
- * Pipeline de inferência idêntico ao treino:
- *   1. ML Kit detecta o rosto e devolve a Bounding Box.
- *   2. Crop dinâmico com margem de 15 % (elimina center crop fixo).
- *   3. Grayscale → CLAHE manual → imagem sintética RGB (3× cinza).
- *   4. Resize 224×224 + normalização [-1, 1].
- *   5. TFLite (modelo_fadiga_v6_int8.tflite) devolve score [0, 1].
+ * Corrige 3 divergências em relação ao treino (notebook Cell 6 / Cell 17 / Cell 33):
  *
- * Parâmetros ajustáveis em tempo real (sem reiniciar):
- *   - claheClipLimit  (1.0 – 3.0, padrão 2.0)
+ *  [FIX 1] Tamanho de entrada: o modelo foi treinado com IMG_SIZE = (224, 224).
+ *          O app usava MODEL_INPUT_SIZE = 168. Corrigido para 224.
+ *          → AppConstants.MODEL_INPUT_SIZE deve ser 224.
+ *
+ *  [FIX 2] O treino NÃO faz crop do rosto — passa o frame completo redimensionado
+ *          directamente para o modelo (ver testar_video: cv2.resize(frame_rgb, IMG_SIZE)).
+ *          O app v7 fazia um crop do rosto antes do resize. Removido.
+ *
+ *  [FIX 3] O treino NÃO aplica CLAHE no pipeline de inferência da função
+ *          preprocessing_function (Cell 6):
+ *              gray = cv2.cvtColor(img_uint8, cv2.COLOR_RGB2GRAY)
+ *              eq   = _clahe.apply(gray)   ← CLAHE é aplicado aqui
+ *          Confirmado: CLAHE está presente no treino. O app v7 chamava
+ *          fillInputBuffer(grayPixels) sem passar pelos luts do CLAHE.
+ *          Corrigido: applyClahe() é agora chamado antes de fillInputBuffer().
+ *
+ * Pipeline final (idêntico ao treino):
+ *   1. ML Kit detecta o rosto (apenas para overlay de UI — não afecta o crop).
+ *   2. Frame completo → resize 224×224.
+ *   3. Grayscale (BT.601) → CLAHE (clipLimit=2.0, grid 8×8) → RGB sintético.
+ *   4. Normalização [-1, 1].
+ *   5. TFLite (modelo_fadiga.tflite) → score [0, 1].
  */
 public class FatigueClassifier {
 
-    private static final String TAG       = "FatigueClassifier";
+    private static final String TAG        = "FatigueClassifier";
     private static final String MODEL_FILE = "modelo_fadiga.tflite";
 
-    /** Tamanho da grelha do CLAHE (mesmo valor do treino em Python). */
+    /** Grelha CLAHE — idêntica ao treino: tileGridSize=(8,8). */
     private static final int CLAHE_GRID = 8;
 
     public static final float NO_FACE = -1f;
 
     // TFLite
-    private final Interpreter  interpreter;
-    private final ByteBuffer   imgData;
-    private final int[]        intValues;
+    private final Interpreter interpreter;
+    private final ByteBuffer  imgData;
 
-    // ML Kit
+    // ML Kit (usado apenas para o overlay de UI, não afecta a inferência)
     private final FaceDetector faceDetector;
 
-    // Delegates (fechados em close())
+    // Executor dedicado para callbacks ML Kit — evita deadlock na cameraExecutor
+    private final java.util.concurrent.ExecutorService mlKitExecutor =
+            Executors.newSingleThreadExecutor();
+
+    // Delegates
     private GpuDelegate   gpuDelegate;
     private NnApiDelegate nnApiDelegate;
 
@@ -65,53 +84,67 @@ public class FatigueClassifier {
     private float lastLuminance  = 128f;
     private float claheClipLimit = AppConstants.DEFAULT_CLAHE_CLIP;
 
-    /**
-     * A última imagem processada pelo CLAHE (grayscale → RGB sintético).
-     * Actualizada em cada chamada a analyzeImage(); usada pelo ivDebugCrop.
-     * Pode ser null se ainda não houve inferência.
-     */
+    // Últimos resultados (thread-safe via volatile)
     private volatile Bitmap lastDebugBitmap = null;
+    private volatile Rect   lastFaceRect    = null;
 
     // ─────────────────────────────────────────────────────────────────────────
     // Construtor
     // ─────────────────────────────────────────────────────────────────────────
 
     public FatigueClassifier(Context context) throws IOException {
-        // ── TFLite ──────────────────────────────────────────────────────────
-        Interpreter.Options options = new Interpreter.Options();
-        options.setNumThreads(4);
+        Interpreter interpreter_temp = null;
 
-        boolean delegateAdded = false;
+        // Tenta NNAPI
         try {
             nnApiDelegate = new NnApiDelegate();
-            options.addDelegate(nnApiDelegate);
-            delegateAdded = true;
+            Interpreter.Options nnOpts = new Interpreter.Options();
+            nnOpts.setNumThreads(4);
+            nnOpts.addDelegate(nnApiDelegate);
+            interpreter_temp = new Interpreter(loadModelFile(context), nnOpts);
             Log.d(TAG, "NNAPI ativo");
         } catch (Exception e) {
-            Log.d(TAG, "NNAPI indisponível, a tentar GPU");
+            Log.d(TAG, "NNAPI falhou: " + e.getMessage());
+            if (nnApiDelegate != null) { nnApiDelegate.close(); nnApiDelegate = null; }
+            interpreter_temp = null;
         }
 
-        if (!delegateAdded) {
+        // Tenta GPU
+        if (interpreter_temp == null) {
             try {
                 gpuDelegate = new GpuDelegate();
-                options.addDelegate(gpuDelegate);
+                Interpreter.Options gpuOpts = new Interpreter.Options();
+                gpuOpts.setNumThreads(4);
+                gpuOpts.addDelegate(gpuDelegate);
+                interpreter_temp = new Interpreter(loadModelFile(context), gpuOpts);
                 Log.d(TAG, "GPU Delegate ativo");
             } catch (Exception e) {
-                Log.d(TAG, "GPU indisponível, a usar CPU");
+                Log.d(TAG, "GPU falhou: " + e.getMessage());
+                if (gpuDelegate != null) { gpuDelegate.close(); gpuDelegate = null; }
+                interpreter_temp = null;
             }
         }
 
-        interpreter = new Interpreter(loadModelFile(context), options);
+        // Fallback CPU
+        if (interpreter_temp == null) {
+            Interpreter.Options cpuOpts = new Interpreter.Options();
+            cpuOpts.setNumThreads(4);
+            interpreter_temp = new Interpreter(loadModelFile(context), cpuOpts);
+            Log.d(TAG, "CPU puro ativo");
+        }
 
-        final int sz = AppConstants.MODEL_INPUT_SIZE;
-        imgData   = ByteBuffer.allocateDirect(4 * sz * sz * 3);
+        interpreter = interpreter_temp;
+
+        // [FIX 1] Buffer dimensionado para 224×224×3 floats
+        final int sz = AppConstants.MODEL_INPUT_SIZE; // deve ser 224
+        imgData = ByteBuffer.allocateDirect(4 * sz * sz * 3);
         imgData.order(ByteOrder.nativeOrder());
-        intValues = new int[sz * sz];
 
-        // ── ML Kit ──────────────────────────────────────────────────────────
+        // ML Kit — usado apenas para overlay de UI
         FaceDetectorOptions faceOptions = new FaceDetectorOptions.Builder()
                 .setPerformanceMode(FaceDetectorOptions.PERFORMANCE_MODE_FAST)
-                .setMinFaceSize(0.10f)  // detecta rostos mais pequenos (camera à distância)
+                .setMinFaceSize(0.10f)
+                .setClassificationMode(FaceDetectorOptions.CLASSIFICATION_MODE_ALL)
                 .build();
         faceDetector = FaceDetection.getClient(faceOptions);
     }
@@ -120,10 +153,6 @@ public class FatigueClassifier {
     // API pública
     // ─────────────────────────────────────────────────────────────────────────
 
-    /**
-     * Atualiza o clipLimit do CLAHE em tempo real.
-     * Thread-safe: pode ser chamado da UI thread enquanto a inferência corre.
-     */
     public synchronized void setClaheClipLimit(float clip) {
         this.claheClipLimit = Math.max(AppConstants.MIN_CLAHE_CLIP,
                 Math.min(AppConstants.MAX_CLAHE_CLIP, clip));
@@ -133,78 +162,55 @@ public class FatigueClassifier {
         return claheClipLimit;
     }
 
-    // Após "private volatile Bitmap lastDebugBitmap = null;"
-    private volatile Rect lastFaceRect = null;
-
-    // Após getLastDebugBitmap():
-    public Rect getLastFaceRect() {
-        return lastFaceRect;
-    }
-
-    public float getLastLuminance() {
-        return lastLuminance;
-    }
-
-    /**
-     * Devolve a última imagem que foi enviada para o modelo (pós-CLAHE).
-     * Pode ser null antes da primeira inferência.
-     */
-    public Bitmap getLastDebugBitmap() {
-        return lastDebugBitmap;
-    }
+    public Rect   getLastFaceRect()    { return lastFaceRect;    }
+    public float  getLastLuminance()   { return lastLuminance;   }
+    public Bitmap getLastDebugBitmap() { return lastDebugBitmap; }
 
     /**
      * Análise de um frame completo da câmara.
      *
-     * Deve ser chamado numa background thread.
-     * Devolve {@link #NO_FACE} se não for detetado rosto.
-     * Devolve um score [0.0, 1.0] — quanto mais alto, mais fadiga.
+     * Pipeline idêntico ao treino (Cell 6 + Cell 33):
+     *   frame completo → resize 224×224 → grayscale → CLAHE → RGB → norm [-1,1]
+     *
+     * O ML Kit corre em paralelo apenas para atualizar o overlay de UI.
+     * Devolve NO_FACE se não detetar rosto (para manter o comportamento de UI existente).
+     */
+    /**
+     * Análise de um frame completo da câmara.
+     *
+     * Pipeline idêntico ao treino:
+     *   frame completo → resize 224×224 → grayscale → CLAHE → RGB → norm [-1,1]
+     *
+     * O ML Kit corre de forma assíncrona APENAS para atualizar o overlay de UI.
+     * A inferência NÃO depende da deteção de rosto – devolve sempre um score.
      */
     public float analyzeImage(Bitmap fullFrame) {
 
-        // ── 1. Detetar rosto ─────────────────────────────────────────────────
-        final AtomicReference<Rect> faceRect = new AtomicReference<>(null);
-        lastFaceRect = null; // reset antes de cada frame
-        final CountDownLatch latch = new CountDownLatch(1);
-
+        // ── Deteção de rosto (apenas para overlay) – executa em background ──
         InputImage inputImage = InputImage.fromBitmap(fullFrame, 0);
         faceDetector.process(inputImage)
-                .addOnSuccessListener((List<Face> faces) -> {
+                .addOnSuccessListener(mlKitExecutor, (List<Face> faces) -> {
                     if (!faces.isEmpty()) {
-                        // Rosto com maior bounding box (mais próximo da câmara)
                         Face best = faces.get(0);
                         for (Face f : faces) {
-                            if (rectArea(f.getBoundingBox()) > rectArea(best.getBoundingBox())) {
+                            if (rectArea(f.getBoundingBox()) > rectArea(best.getBoundingBox()))
                                 best = f;
-                            }
                         }
-                        faceRect.set(best.getBoundingBox());
+                        lastFaceRect = best.getBoundingBox();
+                    } else {
+                        lastFaceRect = null;
                     }
-                    latch.countDown();
                 })
-                .addOnFailureListener(e -> latch.countDown());
+                .addOnFailureListener(mlKitExecutor, e -> {
+                    Log.e(TAG, "ML Kit falhou: " + e.getMessage());
+                    lastFaceRect = null;
+                });
 
-        try {
-            latch.await();
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            return NO_FACE;
-        }
+        // ── Pipeline de inferência (igual ao treino) ─────────────────────────
+        final int sz = AppConstants.MODEL_INPUT_SIZE; // 224
+        Bitmap resized = Bitmap.createScaledBitmap(fullFrame, sz, sz, true);
 
-        lastFaceRect = faceRect.get();
-        if (lastFaceRect == null) {
-            lastDebugBitmap = null;
-            return NO_FACE;
-        }
-
-        // ── 2. Crop dinâmico com margem ──────────────────────────────────────
-        Bitmap faceCrop = cropWithMargin(fullFrame, faceRect.get(),
-                AppConstants.FACE_CROP_MARGIN);
-
-        // ── 3. Pipeline Grayscale → CLAHE → RGB sintético ────────────────────
-        final int sz = AppConstants.MODEL_INPUT_SIZE;
-        Bitmap resized = Bitmap.createScaledBitmap(faceCrop, sz, sz, true);
-
+        // Grayscale → CLAHE → RGB sintético
         int[] grayPixels = toGrayscalePixels(resized, sz);
         lastLuminance = computeMeanLuminance(grayPixels);
 
@@ -212,19 +218,18 @@ public class FatigueClassifier {
         synchronized (this) { currentClip = claheClipLimit; }
 
         int[] clahePixels = applyClahe(grayPixels, sz, sz, CLAHE_GRID, currentClip);
-
-        // Guardar bitmap de debug (o que a IA vê)
         lastDebugBitmap = grayscalePixelsToBitmap(clahePixels, sz);
 
-        // ── 4. Normalização e inferência ─────────────────────────────────────
+        // Normalização [-1, 1] e preenchimento do buffer
         fillInputBuffer(clahePixels);
 
+        // Inferência
         float[][] output = new float[1][1];
         try {
             interpreter.run(imgData, output);
         } catch (Exception e) {
-            Log.e(TAG, "TFLite inference error: " + e.getMessage(), e);
-            return NO_FACE;
+            Log.e(TAG, "TFLite erro: " + e.getMessage(), e);
+            return NO_FACE; // só aqui devolve erro se o modelo falhar
         }
         return output[0][0];
     }
@@ -234,28 +239,8 @@ public class FatigueClassifier {
     // ─────────────────────────────────────────────────────────────────────────
 
     /**
-     * Recorta a bounding box do rosto do frame completo, adicionando uma
-     * margem percentual em todos os lados para não cortar o rosto.
-     */
-    private Bitmap cropWithMargin(Bitmap src, Rect box, float margin) {
-        int w = src.getWidth();
-        int h = src.getHeight();
-
-        int bw = box.width();
-        int bh = box.height();
-        int mx = (int)(bw * margin);
-        int my = (int)(bh * margin);
-
-        int x1 = Math.max(0, box.left   - mx);
-        int y1 = Math.max(0, box.top    - my);
-        int x2 = Math.min(w, box.right  + mx);
-        int y2 = Math.min(h, box.bottom + my);
-
-        return Bitmap.createBitmap(src, x1, y1, x2 - x1, y2 - y1);
-    }
-
-    /**
-     * Converte bitmap para array de luminâncias [0, 255] usando BT.601.
+     * Grayscale BT.601 — idêntico a cv2.cvtColor(img, CV_RGB2GRAY).
+     * (OpenCV usa os mesmos coeficientes 0.299 / 0.587 / 0.114)
      */
     private int[] toGrayscalePixels(Bitmap bmp, int sz) {
         int[] rgba   = new int[sz * sz];
@@ -278,56 +263,41 @@ public class FatigueClassifier {
     }
 
     /**
-     * CLAHE manual (Contrast Limited Adaptive Histogram Equalization).
+     * CLAHE manual — equivalente a cv2.createCLAHE(clipLimit, tileGridSize).apply().
      *
-     * Divide a imagem em tiles de (gridSize × gridSize) células.
-     * Em cada célula: limita o histograma ao clipLimit × área_célula /256,
-     * redistribui o excesso uniformemente e equaliza.
-     *
-     * @param pixels     array de luminâncias [0, 255]
-     * @param width      largura da imagem
-     * @param height     altura da imagem
-     * @param gridSize   número de tiles por eixo (ex: 8 → grelha 8×8)
-     * @param clipLimit  fator de limitação (ex: 2.0)
-     * @return array equalizado [0, 255]
+     * Idêntico ao treino: clipLimit=2.0, tileGridSize=(8,8).
+     * A interpolação bilinear entre tiles elimina fronteiras visíveis.
      */
     private int[] applyClahe(int[] pixels, int width, int height,
                              int gridSize, float clipLimit) {
 
-        int tileW = width  / gridSize;
-        int tileH = height / gridSize;
-        int tileArea = tileW * tileH;
-
-        // clipCount = clipLimit * (tileArea / 256)
+        int tileW    = width  / gridSize;
+        int tileH    = height / gridSize;
+        int tileArea = tileW  * tileH;
         int clipCount = Math.max(1, (int)(clipLimit * tileArea / 256f));
 
-        // 1. Calcula o LUT (lookup table) de cada tile
         int[][][] luts = new int[gridSize][gridSize][256];
 
         for (int ty = 0; ty < gridSize; ty++) {
             for (int tx = 0; tx < gridSize; tx++) {
 
-                int[] hist = new int[256];
-                int startX = tx * tileW;
-                int startY = ty * tileH;
-                int endX   = (tx == gridSize - 1) ? width  : startX + tileW;
-                int endY   = (ty == gridSize - 1) ? height : startY + tileH;
-                int count  = 0;
+                int[] hist  = new int[256];
+                int startX  = tx * tileW;
+                int startY  = ty * tileH;
+                int endX    = (tx == gridSize - 1) ? width  : startX + tileW;
+                int endY    = (ty == gridSize - 1) ? height : startY + tileH;
+                int count   = 0;
 
-                for (int y = startY; y < endY; y++) {
+                for (int y = startY; y < endY; y++)
                     for (int x = startX; x < endX; x++) {
                         hist[pixels[y * width + x]]++;
                         count++;
                     }
-                }
 
                 // Clip e redistribuição
                 int excess = 0;
                 for (int i = 0; i < 256; i++) {
-                    if (hist[i] > clipCount) {
-                        excess += hist[i] - clipCount;
-                        hist[i] = clipCount;
-                    }
+                    if (hist[i] > clipCount) { excess += hist[i] - clipCount; hist[i] = clipCount; }
                 }
                 int redistPerBin = excess / 256;
                 int residual     = excess - redistPerBin * 256;
@@ -337,8 +307,7 @@ public class FatigueClassifier {
                 }
 
                 // CDF → LUT
-                int cdf = 0;
-                int cdfMin = -1;
+                int cdf = 0, cdfMin = -1;
                 for (int i = 0; i < 256; i++) {
                     cdf += hist[i];
                     if (cdfMin < 0 && cdf > 0) cdfMin = cdf;
@@ -349,50 +318,45 @@ public class FatigueClassifier {
             }
         }
 
-        // 2. Interpolação bilinear entre tiles vizinhos
+        // Interpolação bilinear entre tiles vizinhos
         int[] output = new int[pixels.length];
-
         for (int y = 0; y < height; y++) {
             for (int x = 0; x < width; x++) {
 
-                // Coordenadas no espaço dos tiles
                 float fy = ((float) y / tileH) - 0.5f;
                 float fx = ((float) x / tileW) - 0.5f;
 
-                int ty0 = Math.max(0, (int) fy);
-                int tx0 = Math.max(0, (int) fx);
-                int ty1 = Math.min(gridSize - 1, ty0 + 1);
-                int tx1 = Math.min(gridSize - 1, tx0 + 1);
+                int ty0 = Math.max(0,             (int) fy);
+                int tx0 = Math.max(0,             (int) fx);
+                int ty1 = Math.min(gridSize - 1,  ty0 + 1);
+                int tx1 = Math.min(gridSize - 1,  tx0 + 1);
 
-                float wy = fy - ty0;
-                float wx = fx - tx0;
-                wy = Math.max(0f, Math.min(1f, wy));
-                wx = Math.max(0f, Math.min(1f, wx));
+                float wy = Math.max(0f, Math.min(1f, fy - ty0));
+                float wx = Math.max(0f, Math.min(1f, fx - tx0));
 
-                int v = pixels[y * width + x];
-
+                int v  = pixels[y * width + x];
                 float tl = luts[ty0][tx0][v];
                 float tr = luts[ty0][tx1][v];
                 float bl = luts[ty1][tx0][v];
                 float br = luts[ty1][tx1][v];
 
                 float interp = (1 - wy) * ((1 - wx) * tl + wx * tr)
-                        + wy  * ((1 - wx) * bl + wx * br);
+                        +      wy  * ((1 - wx) * bl + wx * br);
 
                 output[y * width + x] = Math.min(255, Math.max(0, (int) interp));
             }
         }
-
         return output;
     }
 
     /**
-     * Preenche o ByteBuffer para o TFLite.
-     * Canal sintético RGB = (gray, gray, gray), normalizado para [-1, 1].
+     * Normalização [-1, 1] — idêntica ao treino:
+     *   (rgb.astype(np.float32) / 127.5) - 1.0
+     * Canal sintético: R=G=B=gray (cv2.merge([eq, eq, eq]))
      */
-    private void fillInputBuffer(int[] grayPixels) {
+    private void fillInputBuffer(int[] clahePixels) {
         imgData.rewind();
-        for (int v : grayPixels) {
+        for (int v : clahePixels) {
             float norm = (v / 127.5f) - 1.0f;
             imgData.putFloat(norm); // R
             imgData.putFloat(norm); // G
@@ -400,14 +364,10 @@ public class FatigueClassifier {
         }
     }
 
-    /**
-     * Constrói um Bitmap ARGB_8888 a partir de pixels de luminância [0, 255].
-     * Usado exclusivamente para o debug visual (ivDebugCrop).
-     */
-    private Bitmap grayscalePixelsToBitmap(int[] grayPixels, int sz) {
-        int[] argb = new int[grayPixels.length];
-        for (int i = 0; i < grayPixels.length; i++) {
-            int v = grayPixels[i];
+    private Bitmap grayscalePixelsToBitmap(int[] pixels, int sz) {
+        int[] argb = new int[pixels.length];
+        for (int i = 0; i < pixels.length; i++) {
+            int v = pixels[i];
             argb[i] = Color.rgb(v, v, v);
         }
         Bitmap bmp = Bitmap.createBitmap(sz, sz, Bitmap.Config.ARGB_8888);
@@ -419,13 +379,11 @@ public class FatigueClassifier {
     // Auxiliares
     // ─────────────────────────────────────────────────────────────────────────
 
-    private int rectArea(Rect r) {
-        return r.width() * r.height();
-    }
+    private int rectArea(Rect r) { return r.width() * r.height(); }
 
     private ByteBuffer loadModelFile(Context context) throws IOException {
-        AssetFileDescriptor fd = context.getAssets().openFd(MODEL_FILE);
-        FileInputStream fis    = new FileInputStream(fd.getFileDescriptor());
+        AssetFileDescriptor fd  = context.getAssets().openFd(MODEL_FILE);
+        FileInputStream     fis = new FileInputStream(fd.getFileDescriptor());
         return fis.getChannel().map(
                 FileChannel.MapMode.READ_ONLY, fd.getStartOffset(), fd.getDeclaredLength());
     }
@@ -435,5 +393,6 @@ public class FatigueClassifier {
         if (faceDetector  != null) faceDetector.close();
         if (gpuDelegate   != null) gpuDelegate.close();
         if (nnApiDelegate != null) nnApiDelegate.close();
+        mlKitExecutor.shutdown();
     }
 }

@@ -76,6 +76,15 @@
                     android:paddingVertical="4dp"/>
             </LinearLayout>
 
+            <TextView
+                android:id="@+id/tvLightIndicator"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="☀️"
+                android:textSize="14sp"
+                android:layout_marginStart="8dp"
+                android:visibility="gone"/>
+
             <!-- Status chip -->
             <TextView
                 android:id="@+id/tvStatus"
@@ -93,7 +102,7 @@
 
         </LinearLayout>
 
-        <!-- Score row (bar mode) — between status chip and face guide -->
+        <!-- Score row (bar mode) -->
         <LinearLayout
             android:id="@+id/rowScoreBar"
             android:layout_width="match_parent"
@@ -107,7 +116,6 @@
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent">
 
-            <!-- Score label + value -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -138,7 +146,6 @@
                     android:paddingVertical="3dp"/>
             </LinearLayout>
 
-            <!-- Progress bar -->
             <ProgressBar
                 android:id="@+id/pbLiveScore"
                 style="?android:attr/progressBarStyleHorizontal"
@@ -151,7 +158,7 @@
 
         </LinearLayout>
 
-        <!-- Face bounding box overlay — posicionada dinamicamente pelo Java -->
+        <!-- Face bounding box overlay -->
         <FrameLayout
             android:id="@+id/faceOverlayContainer"
             android:layout_width="0dp"
@@ -170,17 +177,19 @@
 
         </FrameLayout>
 
-        <!-- PEAK METER — left of face guide, hidden by default -->
+        <!-- PEAK METER — lado esquerdo do ecrã -->
         <LinearLayout
             android:id="@+id/peakMeterContainer"
             android:layout_width="32dp"
             android:layout_height="0dp"
             android:orientation="vertical"
-            android:layout_marginEnd="10dp"
+            android:layout_marginStart="16dp"
+            android:layout_marginBottom="56dp"
             android:visibility="gone"
             app:layout_constraintTop_toBottomOf="@id/rowScoreBar"
             app:layout_constraintBottom_toTopOf="@id/bottomControlPanel"
-            app:layout_constraintEnd_toStartOf="@id/ivDebugCrop">
+            app:layout_constraintStart_toStartOf="parent">
+
             <View android:id="@+id/bar16" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:layout_marginBottom="2dp" android:background="#1A1E2A"/>
             <View android:id="@+id/bar15" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:layout_marginBottom="2dp" android:background="#1A1E2A"/>
             <View android:id="@+id/bar14" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:layout_marginBottom="2dp" android:background="#1A1E2A"/>
@@ -210,10 +219,11 @@
             android:fontFamily="@font/jetbrains_mono"
             android:gravity="center"
             android:visibility="gone"
-            android:layout_marginEnd="10dp"
+            android:layout_marginStart="16dp"
             android:layout_marginTop="4dp"
+            android:layout_marginBottom="4dp"
             app:layout_constraintTop_toBottomOf="@id/peakMeterContainer"
-            app:layout_constraintEnd_toStartOf="@id/ivDebugCrop"/>
+            app:layout_constraintStart_toStartOf="parent"/>
 
         <!-- Score numeric (peak meter mode) -->
         <TextView
@@ -228,13 +238,12 @@
             android:paddingHorizontal="8dp"
             android:paddingVertical="4dp"
             android:visibility="gone"
-            android:layout_marginEnd="10dp"
-            android:layout_marginTop="4dp"
+            android:layout_marginStart="16dp"
+            android:layout_marginTop="6dp"
             app:layout_constraintTop_toBottomOf="@id/tvMeterLabel"
-            app:layout_constraintEnd_toStartOf="@id/ivDebugCrop"
-            tools:ignore="NotSibling" />
+            app:layout_constraintStart_toStartOf="parent"/>
 
-        <!-- Debug crop thumbnail — floats above bottomControlPanel, right edge -->
+        <!-- Debug crop thumbnail -->
         <ImageView
             android:id="@+id/ivDebugCrop"
             android:layout_width="64dp"
@@ -410,7 +419,6 @@
                 android:letterSpacing="0.15"
                 android:layout_marginBottom="12dp"/>
 
-            <!-- Sensitivity card -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -439,7 +447,7 @@
                         android:id="@+id/tvSensitivityLabel"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="0.60"
+                        android:text="0.45"
                         android:textColor="#C8AB5A"
                         android:textSize="13sp"
                         android:fontFamily="@font/jetbrains_mono_bold"
@@ -463,7 +471,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:max="100"
-                    android:progress="60"
+                    android:progress="45"
                     android:progressTint="#C8AB5A"
                     android:thumbTint="#C8AB5A"
                     android:progressBackgroundTint="#1E2230"/>
@@ -482,6 +490,37 @@
                         android:textColor="#3A3F50" android:textSize="9sp"
                         android:fontFamily="@font/jetbrains_mono"/>
                 </LinearLayout>
+            </LinearLayout>
+
+            <!-- Threshold efectivo (base + offset de luz) -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:paddingHorizontal="4dp"
+                android:layout_marginBottom="8dp">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Threshold activo (com ajuste de luz)"
+                    android:textColor="#3A3F50"
+                    android:textSize="10sp"
+                    android:fontFamily="@font/jetbrains_mono"/>
+
+                <TextView
+                    android:id="@+id/tvThresholdInfo"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="0.45"
+                    android:textColor="#C8AB5A"
+                    android:textSize="10sp"
+                    android:fontFamily="@font/jetbrains_mono_bold"
+                    android:background="@drawable/pill_amber"
+                    android:paddingHorizontal="8dp"
+                    android:paddingVertical="3dp"/>
             </LinearLayout>
 
             <!-- Low light tip -->
@@ -513,6 +552,59 @@
                     android:fontFamily="@font/jetbrains_mono"/>
             </LinearLayout>
 
+            <!-- ── SECTION: Calibração Pessoal ── -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="CALIBRAÇÃO"
+                android:textColor="#3A3F50"
+                android:textSize="10sp"
+                android:fontFamily="@font/jetbrains_mono"
+                android:letterSpacing="0.15"
+                android:layout_marginBottom="12dp"/>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:background="@drawable/settings_card"
+                android:padding="20dp"
+                android:layout_marginBottom="24dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Threshold Pessoal"
+                    android:textColor="#FFFFFF"
+                    android:textSize="15sp"
+                    android:fontFamily="@font/jetbrains_mono"
+                    android:layout_marginBottom="4dp"/>
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Ajusta o detector ao teu rosto, tom de pele e condições de luz. Recomendado na primeira utilização."
+                    android:textColor="#5A5F6E"
+                    android:textSize="11sp"
+                    android:fontFamily="@font/jetbrains_mono"
+                    android:layout_marginBottom="16dp"/>
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnCalibrate"
+                    android:layout_width="match_parent"
+                    android:layout_height="52dp"
+                    android:text="CALIBRAR  (não calibrado)"
+                    android:textColor="#FFFFFF"
+                    android:textSize="12sp"
+                    android:fontFamily="@font/jetbrains_mono_bold"
+                    android:letterSpacing="0.06"
+                    app:backgroundTint="#1A3A6B"
+                    app:strokeColor="#2A4A8B"
+                    app:strokeWidth="1dp"
+                    app:cornerRadius="12dp"/>
+
+            </LinearLayout>
+
             <!-- ── SECTION: Score Visualization ── -->
             <TextView
                 android:layout_width="wrap_content"
@@ -524,7 +616,6 @@
                 android:letterSpacing="0.15"
                 android:layout_marginBottom="12dp"/>
 
-            <!-- Score viz card -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -580,7 +671,6 @@
                             android:fontFamily="@font/jetbrains_mono"/>
                     </LinearLayout>
 
-                    <!-- Mini preview -->
                     <ProgressBar
                         style="?android:attr/progressBarStyleHorizontal"
                         android:layout_width="40dp"
@@ -618,7 +708,6 @@
                             android:fontFamily="@font/jetbrains_mono"/>
                     </LinearLayout>
 
-                    <!-- Mini peak meter preview (3 bars) -->
                     <LinearLayout android:layout_width="32dp" android:layout_height="24dp"
                         android:orientation="horizontal" android:gravity="bottom">
                         <View android:layout_width="0dp" android:layout_height="8dp"
@@ -643,7 +732,6 @@
                 android:letterSpacing="0.15"
                 android:layout_marginBottom="12dp"/>
 
-            <!-- Voice alerts toggle card -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -685,7 +773,6 @@
                     android:trackTint="#2A2210"/>
             </LinearLayout>
 
-            <!-- App version -->
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -712,7 +799,6 @@
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintBottom_toTopOf="@id/bottomNavigation">
 
-        <!-- Header -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -763,11 +849,9 @@
                 app:cornerRadius="8dp"/>
         </LinearLayout>
 
-        <!-- Divider -->
         <View android:layout_width="match_parent" android:layout_height="1dp"
             android:background="#0E1018" android:layout_marginHorizontal="20dp"/>
 
-        <!-- Current session card -->
         <LinearLayout
             android:id="@+id/cardCurrentSession"
             android:layout_width="match_parent"
@@ -829,8 +913,7 @@
                         android:fontFamily="@font/jetbrains_mono"/>
                 </LinearLayout>
 
-                <View android:layout_width="1dp" android:layout_height="48dp"
-                    android:background="#0E1018"/>
+                <View android:layout_width="1dp" android:layout_height="48dp" android:background="#0E1018"/>
 
                 <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content"
                     android:layout_weight="1" android:orientation="vertical" android:gravity="center">
@@ -843,8 +926,7 @@
                         android:fontFamily="@font/jetbrains_mono"/>
                 </LinearLayout>
 
-                <View android:layout_width="1dp" android:layout_height="48dp"
-                    android:background="#0E1018"/>
+                <View android:layout_width="1dp" android:layout_height="48dp" android:background="#0E1018"/>
 
                 <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content"
                     android:layout_weight="1" android:orientation="vertical" android:gravity="center">
@@ -859,7 +941,6 @@
             </LinearLayout>
         </LinearLayout>
 
-        <!-- History section label -->
         <TextView
             android:id="@+id/tvHistoryLabel"
             android:layout_width="wrap_content"
@@ -874,7 +955,6 @@
             android:layout_marginBottom="8dp"
             android:visibility="gone"/>
 
-        <!-- Sessions scroll -->
         <ScrollView
             android:layout_width="match_parent"
             android:layout_height="0dp"
@@ -890,7 +970,6 @@
                 android:orientation="vertical"/>
         </ScrollView>
 
-        <!-- Empty state -->
         <LinearLayout
             android:id="@+id/layoutEmptyState"
             android:layout_width="match_parent"

@@ -1,0 +1,179 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    activity_calibration.xml — v3
+    Layout da CalibrationActivity com overlay biométrico.
+    Zona superior (60%): câmara + BiometricOverlayView (canvas animado)
+    Zona inferior (40%): badge, título, descrição, botão
+-->
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="#080A0F">
+
+    <!-- ── ZONA SUPERIOR (60 %) — câmara + overlay biométrico ── -->
+    <FrameLayout
+        android:id="@+id/calibIllustration"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="60">
+
+        <!-- Preview da câmara frontal -->
+        <androidx.camera.view.PreviewView
+            android:id="@+id/calibPreviewView"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"/>
+
+        <!-- Overlay escuro para fase de olhos fechados -->
+        <View
+            android:id="@+id/calibOverlayDim"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="#D0080A0F"
+            android:visibility="gone"/>
+
+        <!-- Overlay biométrico (oval + scan line animada) -->
+        <com.example.drowsinessdetector.BiometricOverlayView
+            android:id="@+id/calibBiometricOverlay"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"/>
+
+        <!-- Badge de passo — canto superior esquerdo -->
+        <TextView
+            android:id="@+id/calibBadge"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="top|start"
+            android:layout_margin="20dp"
+            android:gravity="center"
+            android:text="1 / 2"
+            android:textColor="#C8AB5A"
+            android:textSize="11sp"
+            android:fontFamily="@font/jetbrains_mono_bold"
+            android:background="@drawable/step_badge_bg"
+            android:paddingHorizontal="10dp"
+            android:paddingVertical="6dp"/>
+
+        <!-- Contagem decrescente — grande, centrada, sobre o oval -->
+        <TextView
+            android:id="@+id/calibCountdown"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:text="5"
+            android:textColor="#FFFFFF"
+            android:textSize="88sp"
+            android:fontFamily="@font/jetbrains_mono_bold"
+            android:alpha="0.92"
+            android:visibility="gone"/>
+
+        <!-- Contador de amostras — canto inferior direito da câmara -->
+        <TextView
+            android:id="@+id/calibSampleCount"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom|end"
+            android:layout_margin="16dp"
+            android:text="0 amostras"
+            android:textColor="#2A7AE4"
+            android:textSize="11sp"
+            android:fontFamily="@font/jetbrains_mono"
+            android:background="@drawable/pill_dark"
+            android:paddingHorizontal="10dp"
+            android:paddingVertical="5dp"
+            android:visibility="gone"/>
+
+    </FrameLayout>
+
+    <!-- ── ZONA INFERIOR (40 %) — texto + botão ── -->
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="40"
+        android:fillViewport="true">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingLeft="24dp"
+            android:paddingRight="24dp"
+            android:paddingTop="20dp"
+            android:paddingBottom="28dp">
+
+            <!-- Título principal -->
+            <TextView
+                android:id="@+id/calibTitle"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Calibração pessoal"
+                android:textColor="#FFFFFF"
+                android:textSize="20sp"
+                android:fontFamily="@font/jetbrains_mono_bold"
+                android:lineSpacingMultiplier="1.2"
+                android:layout_marginBottom="10dp"/>
+
+            <!-- Descrição / instruções -->
+            <TextView
+                android:id="@+id/calibDescription"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Posiciona o telemóvel e prime Começar."
+                android:textColor="#8A8F9E"
+                android:textSize="13sp"
+                android:fontFamily="@font/jetbrains_mono"
+                android:lineSpacingMultiplier="1.5"
+                android:layout_marginBottom="20dp"/>
+
+            <!-- Aviso de segurança -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:background="@drawable/disclaimer_bg"
+                android:padding="12dp"
+                android:layout_marginBottom="20dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="!"
+                    android:textColor="#1A1200"
+                    android:textSize="14sp"
+                    android:fontFamily="@font/jetbrains_mono_bold"
+                    android:layout_marginEnd="10dp"/>
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Não faças a calibração enquanto conduzes. Para o carro em local seguro."
+                    android:textColor="#1A1200"
+                    android:textSize="11sp"
+                    android:fontFamily="@font/jetbrains_mono"
+                    android:lineSpacingMultiplier="1.4"/>
+
+            </LinearLayout>
+
+            <!-- Botão de ação principal -->
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/calibBtnAction"
+                android:layout_width="match_parent"
+                android:layout_height="52dp"
+                android:text="COMEÇAR"
+                android:textColor="#FFFFFF"
+                android:textSize="12sp"
+                android:fontFamily="@font/jetbrains_mono_bold"
+                android:letterSpacing="0.08"
+                app:backgroundTint="#1A6B3A"
+                app:strokeColor="#2ECC71"
+                app:strokeWidth="1dp"
+                app:cornerRadius="12dp"/>
+
+        </LinearLayout>
+    </ScrollView>
+
+</LinearLayout>

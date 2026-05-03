@@ -15,13 +15,14 @@ public final class AppConstants {
 
     // Monitorização
     public static final long   VOICE_COOLDOWN_MS      = 5000L;
-    public static final float  DEFAULT_CONFIDENCE     = 0.40f;   // alinhado com o threshold do modelo v6
-    public static final int    DEFAULT_SENSITIVITY    = 50;      // correspondente a 0.50f
-    public static final int    SMOOTH_WINDOW          = 3;    // era 5
-    public static final long   FATIGUE_DURATION_MS    =400L; // era 350 — mais estável
+    public static final float  DEFAULT_CONFIDENCE     = 0.45f;   // alinhado com o threshold do modelo v6
+    public static final int    DEFAULT_SENSITIVITY    = 45;    // alinhado com DEFAULT_CONFIDENCE
+
+    public static final int    SMOOTH_WINDOW          = 2;     // menos diluição
+    public static final long   FATIGUE_DURATION_MS    = 300L;  // mais reativo
 
     // CLAHE
-    public static final float  DEFAULT_CLAHE_CLIP     = 2.5f;   // clipLimit padrão igual ao treino
+    public static final float  DEFAULT_CLAHE_CLIP     = 2.0f;   // clipLimit padrão igual ao treino
     public static final float  MIN_CLAHE_CLIP         = 1.0f;
     public static final float  MAX_CLAHE_CLIP         = 3.0f;
 

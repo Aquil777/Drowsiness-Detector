@@ -1,7 +1,9 @@
 package com.example.drowsinessdetector;
 
 import android.Manifest;
+import android.app.AlertDialog;
 import android.content.Context;
+import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.content.res.ColorStateList;
@@ -26,6 +28,8 @@ import android.widget.SeekBar;
 import android.widget.Switch;
 import android.widget.TextView;
 
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.camera.core.CameraSelector;
@@ -42,6 +46,7 @@ import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.android.material.button.MaterialButton;
 
 import android.app.Dialog;
+import android.widget.Toast;
 
 import java.util.List;
 import java.util.Locale;
@@ -52,6 +57,8 @@ import java.util.concurrent.Executors;
 public class MainActivity extends AppCompatActivity {
 
     private static final String TAG = "MainActivity";
+    private TextView tvLightIndicator;
+    private long lastLightUpdate = 0;
 
     // ── Score visualization mode ──────────────────────────────────────────────
     private static final int VIZ_BAR   = 0;
@@ -61,11 +68,11 @@ public class MainActivity extends AppCompatActivity {
     // Peak meter bars (16 elements, index 0 = top/highest)
     private View[] meterBars;
     private static final int[] BAR_COLORS_ACTIVE = {
-            0xFFE53935, 0xFFE53935,                           // 16,15 — red zone
-            0xFFEF6C00, 0xFFEF6C00,                           // 14,13 — orange
-            0xFFC8AB5A, 0xFFC8AB5A, 0xFFC8AB5A, 0xFFC8AB5A,  // 12–9  — amber
-            0xFF2ECC71, 0xFF2ECC71, 0xFF2ECC71, 0xFF2ECC71,   // 8–5   — green
-            0xFF2ECC71, 0xFF2ECC71, 0xFF2ECC71, 0xFF2ECC71    // 4–1   — green
+            0xFFE53935, 0xFFE53935,
+            0xFFEF6C00, 0xFFEF6C00,
+            0xFFC8AB5A, 0xFFC8AB5A, 0xFFC8AB5A, 0xFFC8AB5A,
+            0xFF2ECC71, 0xFF2ECC71, 0xFF2ECC71, 0xFF2ECC71,
+            0xFF2ECC71, 0xFF2ECC71, 0xFF2ECC71, 0xFF2ECC71
     };
     private static final int BAR_COLOR_INACTIVE = 0xFF1A1E2A;
 
@@ -87,7 +94,7 @@ public class MainActivity extends AppCompatActivity {
     private TextView         tvStatus;
     private ProgressBar      pbLiveScore;
     private ImageView        ivDebugCrop;
-    private View ivFaceOverlay; // bounding box dinâmica do rosto
+    private View             ivFaceOverlay;
     private MaterialButton   btnStartStop;
     private ScrollView       layoutSettings;
     private LinearLayout     layoutHistory;
@@ -114,8 +121,6 @@ public class MainActivity extends AppCompatActivity {
     // ── AI ────────────────────────────────────────────────────────────────────
     private FatigueClassifier classifier;
 
-    // ── Calibração em tempo real (v6) ─────────────────────────────────────────
-
     // ── Audio ─────────────────────────────────────────────────────────────────
     private MediaPlayer  mediaPlayer;
     private TextToSpeech tts;
@@ -127,6 +132,12 @@ public class MainActivity extends AppCompatActivity {
     private long    fatigueStartTime    = 0;
     private float   confidenceThreshold = AppConstants.DEFAULT_CONFIDENCE;
     private boolean useVoiceAlerts      = false;
+
+    // ── Threshold adaptativo (calibração + sensor de luz) ────────────────────
+    private ThresholdManager thresholdManager;
+
+    // ── Launcher para CalibrationActivity ────────────────────────────────────
+    private ActivityResultLauncher<Intent> calibrationLauncher;
 
     // ── Session ───────────────────────────────────────────────────────────────
     private DriveSession      currentSession;
@@ -163,12 +174,26 @@ public class MainActivity extends AppCompatActivity {
 
         sessionRepository = new SessionRepository(this);
 
-        // initClassifier ANTES de requestCameraPermission para garantir que
-        // cameraExecutor existe quando a câmara iniciar.
+        // ── ThresholdManager — inicializa antes de setupSeekBar() ────────────
+        thresholdManager = new ThresholdManager(this);
+
+        // ── Launcher para receber resultado da calibração ─────────────────────
+        calibrationLauncher = registerForActivityResult(
+                new ActivityResultContracts.StartActivityForResult(),
+                result -> {
+                    if (result.getResultCode() == CalibrationActivity.RESULT_CALIBRATED) {
+                        // Recarrega threshold pessoal após calibração bem-sucedida
+                        confidenceThreshold = thresholdManager.getEffectiveThreshold();
+                        syncSeekBarToThreshold();
+                        android.widget.Toast.makeText(this,
+                                "Threshold personalizado: " +
+                                        String.format(Locale.getDefault(), "%.2f", confidenceThreshold),
+                                android.widget.Toast.LENGTH_LONG).show();
+                    }
+                });
+
         initClassifier();
         initAudio();
-
-        // Carregar CLAHE guardado e criar o painel de calibração
         initCalibration();
 
         setupNavigation();
@@ -178,6 +203,7 @@ public class MainActivity extends AppCompatActivity {
         setupClearHistoryButton();
         setupHelpButton();
         setupScoreVizOptions();
+        setupCalibrateButton();   // ← NOVO
 
         btnStartStop.setOnClickListener(v -> toggleMonitoring());
         setMonitoringState(false);
@@ -185,6 +211,29 @@ public class MainActivity extends AppCompatActivity {
 
         requestCameraPermission();
 
+        checkAndShowOnboarding();
+    }
+
+    /**
+     * Mostra o onboarding se for a primeira utilização E a permissão da câmara
+     * já tiver sido concedida. Caso contrário, o diálogo será mostrado mais tarde,
+     * depois de a permissão ser concedida.
+     */
+    private void checkAndShowOnboarding() {
+        SharedPreferences prefs = getSharedPreferences(AppConstants.PREFS_NAME, MODE_PRIVATE);
+        boolean onboardingDone = prefs.getBoolean(AppConstants.KEY_ONBOARDING_DONE, false);
+        if (!onboardingDone && allPermissionsGranted()) {
+            showOnboardingDialog();
+        }
+    }
+
+    /**
+     * Chamado quando a permissão foi concedida (quer no arranque, quer
+     * após o utilizador a ter aceite).
+     */
+    private void onCameraPermissionGranted() {
+        startCamera();
+        // Se o onboarding ainda não foi feito, mostra agora
         SharedPreferences prefs = getSharedPreferences(AppConstants.PREFS_NAME, MODE_PRIVATE);
         if (!prefs.getBoolean(AppConstants.KEY_ONBOARDING_DONE, false)) {
             showOnboardingDialog();
@@ -194,6 +243,7 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
+
         SharedPreferences prefs = getSharedPreferences(AppConstants.PREFS_NAME, MODE_PRIVATE);
         useVoiceAlerts = prefs.getBoolean(AppConstants.KEY_USE_VOICE, false);
         scoreVizMode   = prefs.getInt("scoreVizMode", VIZ_BAR);
@@ -202,10 +252,53 @@ public class MainActivity extends AppCompatActivity {
         if (swVoice != null) swVoice.setChecked(useVoiceAlerts);
         applyScoreVizMode();
 
-        // Restaurar CLAHE ao voltar à app (ex: após minimizar)
         float restoredClip = prefs.getFloat(AppConstants.KEY_CLAHE_CLIP,
                 AppConstants.DEFAULT_CLAHE_CLIP);
         if (classifier != null) classifier.setClaheClipLimit(restoredClip);
+
+        // Regista o sensor de luz e sincroniza o threshold
+        thresholdManager.register();
+        confidenceThreshold = thresholdManager.getEffectiveThreshold();
+
+        // Reinicia a câmara se ela não estiver ativa
+        restartCameraIfNeeded();
+    }
+
+    /**
+     * Volta a ligar a câmara se a monitorização não está a correr e a
+     * permissão já foi concedida. Isto resolve o problema depois de regressar
+     * da CalibrationActivity ou de colocar a app em pausa.
+     */
+    private void restartCameraIfNeeded() {
+        if (!isMonitoring && allPermissionsGranted()) {
+            // Liberta o imageAnalysis antigo (se existir) e volta a iniciar
+            if (imageAnalysis != null) {
+                imageAnalysis.clearAnalyzer();
+            }
+            ProcessCameraProvider.getInstance(this).addListener(() -> {
+                try {
+                    ProcessCameraProvider provider = ProcessCameraProvider.getInstance(this).get();
+                    provider.unbindAll(); // desliga tudo o que ainda esteja ligado
+                    Preview preview = new Preview.Builder().build();
+                    preview.setSurfaceProvider(viewFinder.getSurfaceProvider());
+                    imageAnalysis = new ImageAnalysis.Builder()
+                            .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                            .build();
+                    provider.bindToLifecycle(this,
+                            CameraSelector.DEFAULT_FRONT_CAMERA,
+                            preview, imageAnalysis);
+                } catch (Exception e) {
+                    Log.e(TAG, "Erro ao reiniciar câmara: " + e.getMessage());
+                }
+            }, ContextCompat.getMainExecutor(this));
+        }
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        // ── Liberta sensor de luz para poupar bateria ─────────────────────────
+        thresholdManager.unregister();
     }
 
     @Override
@@ -236,6 +329,7 @@ public class MainActivity extends AppCompatActivity {
         rowAlertCount        = findViewById(R.id.rowAlertCount);
         rowScoreBar          = findViewById(R.id.rowScoreBar);
         tvScoreInPanel       = findViewById(R.id.tvScoreInPanel);
+        tvLightIndicator = findViewById(R.id.tvLightIndicator);
 
         optionScoreBar   = findViewById(R.id.optionScoreBar);
         optionScoreMeter = findViewById(R.id.optionScoreMeter);
@@ -272,17 +366,17 @@ public class MainActivity extends AppCompatActivity {
 
     private void initClassifier() {
         try {
-            classifier     = new FatigueClassifier(this);
+            classifier = new FatigueClassifier(this);
             cameraExecutor = Executors.newSingleThreadExecutor();
         } catch (Exception e) {
-            Log.e(TAG, "Erro ao inicializar classificador", e);
+            Log.e(TAG, "Erro ao inicializar classificador: " + e.getMessage(), e);
+            classifier = null;
+            runOnUiThread(() -> android.widget.Toast.makeText(
+                    this, "Erro ao carregar modelo de IA. Verifique se o ficheiro " +
+                            "modelo_fadiga.tflite está em assets.", android.widget.Toast.LENGTH_LONG).show());
         }
     }
 
-    /**
-     * Carrega o clipLimit guardado, aplica-o ao classificador e cria o
-     * CalibrationPanel que vai aparecer como BottomSheet na aba da câmara.
-     */
     private void initCalibration() {
         SharedPreferences prefs = getSharedPreferences(AppConstants.PREFS_NAME, MODE_PRIVATE);
         float savedClip = prefs.getFloat(AppConstants.KEY_CLAHE_CLIP,
@@ -290,20 +384,63 @@ public class MainActivity extends AppCompatActivity {
         if (classifier != null) classifier.setClaheClipLimit(savedClip);
     }
 
-    /**
-     * Liga o botão "⚙ Calibrar" (R.id.btnCalibration) ao BottomSheet.
-     * O botão deve estar no layout da aba de monitorização, visível durante
-     * a sessão ativa. Se o id não existir no XML, o método não faz nada.
-     */
-
     private void requestCameraPermission() {
         if (allPermissionsGranted()) {
-            startCamera();
+            onCameraPermissionGranted();
         } else {
             ActivityCompat.requestPermissions(this,
                     new String[]{Manifest.permission.CAMERA},
                     AppConstants.CAMERA_PERMISSION_CODE);
         }
+    }
+
+    // =========================================================================
+    // Calibrar button (nas Definições)
+    // =========================================================================
+
+    /**
+     * Configura o botão "CALIBRAR" no separador de Definições.
+     * Adiciona ao teu layout de definições um MaterialButton com
+     * android:id="@+id/btnCalibrate".
+     */
+    private void setupCalibrateButton() {
+        MaterialButton btnCalibrate = findViewById(R.id.btnCalibrate);
+        if (btnCalibrate == null) return;
+
+        // Mostra se já está calibrado
+        updateCalibrateButtonLabel(btnCalibrate);
+
+        btnCalibrate.setOnClickListener(v -> {
+            Intent intent = new Intent(this, CalibrationActivity.class);
+            calibrationLauncher.launch(intent);
+        });
+    }
+
+    /**
+     * Atualiza a label do botão conforme o estado de calibração.
+     * "CALIBRAR (não calibrado)" vs "RECALIBRAR (0.xx)"
+     */
+    private void updateCalibrateButtonLabel(MaterialButton btn) {
+        if (thresholdManager.isCalibrated()) {
+            btn.setText(String.format(Locale.getDefault(),
+                    "RECALIBRAR  (%.2f)", thresholdManager.getPersonalThreshold()));
+        } else {
+            btn.setText("CALIBRAR (não calibrado)");
+        }
+    }
+
+    /**
+     * Sincroniza o SeekBar de sensibilidade com o threshold efectivo actual.
+     * Chamado após calibração bem-sucedida.
+     */
+    private void syncSeekBarToThreshold() {
+        SeekBar sb = findViewById(R.id.sbSensitivity);
+        if (sb == null) return;
+        int progress = (int)(thresholdManager.getPersonalThreshold() * 100);
+        sb.setProgress(progress);
+
+        MaterialButton btnCalibrate = findViewById(R.id.btnCalibrate);
+        if (btnCalibrate != null) updateCalibrateButtonLabel(btnCalibrate);
     }
 
     // =========================================================================
@@ -387,6 +524,9 @@ public class MainActivity extends AppCompatActivity {
             } else if (id == R.id.nav_settings) {
                 layoutSettings.setVisibility(View.VISIBLE);
                 updateLowLightSuggestion();
+                // Atualiza label do botão de calibrar ao abrir definições
+                MaterialButton btnCalibrate = findViewById(R.id.btnCalibrate);
+                if (btnCalibrate != null) updateCalibrateButtonLabel(btnCalibrate);
             }
             return true;
         });
@@ -408,15 +548,27 @@ public class MainActivity extends AppCompatActivity {
         TextView mode  = findViewById(R.id.tvSensitivityMode);
         if (sb == null || label == null) return;
 
+        // Usa o threshold efectivo como ponto de partida.
+        // Se o utilizador já calibrou, o SeekBar reflete o threshold pessoal.
+        // Caso contrário usa o valor guardado (ou DEFAULT_SENSITIVITY).
         SharedPreferences prefs = getSharedPreferences(AppConstants.PREFS_NAME, MODE_PRIVATE);
-        int saved = prefs.getInt(AppConstants.KEY_SENSITIVITY, AppConstants.DEFAULT_SENSITIVITY);
+        int saved;
+        if (thresholdManager.isCalibrated()) {
+            // Mostra o threshold pessoal no SeekBar (sem o offset de luz)
+            saved = (int)(thresholdManager.getPersonalThreshold() * 100);
+        } else {
+            saved = prefs.getInt(AppConstants.KEY_SENSITIVITY, AppConstants.DEFAULT_SENSITIVITY);
+        }
         sb.setProgress(saved);
-        confidenceThreshold = saved / 100f;
+        confidenceThreshold = thresholdManager.getEffectiveThreshold();
         updateSensitivityLabel(label, mode, saved);
 
         sb.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override public void onProgressChanged(SeekBar s, int p, boolean u) {
-                confidenceThreshold = p / 100f;
+                // O SeekBar ajuste manual sobrepõe temporariamente o threshold pessoal.
+                // O offset de luz continua a ser aplicado por cima.
+                confidenceThreshold = (p / 100f) + thresholdManager.getCurrentLuxOffset();
+                confidenceThreshold = Math.min(confidenceThreshold, 0.80f);
                 updateSensitivityLabel(label, mode, p);
             }
             @Override public void onStartTrackingTouch(SeekBar s) {}
@@ -495,6 +647,9 @@ public class MainActivity extends AppCompatActivity {
             fatigueStartTime = 0;
             resetScoreBuffer();
 
+            // Atualiza threshold com offset de luz actual antes de começar
+            confidenceThreshold = thresholdManager.getEffectiveThreshold();
+
             btnStartStop.setEnabled(false);
             btnStartStop.setBackgroundTintList(ColorStateList.valueOf(0xFF8B2020));
             btnStartStop.setStrokeColorResource(R.color.red_stroke);
@@ -510,6 +665,7 @@ public class MainActivity extends AppCompatActivity {
             if (ivDebugCrop != null) ivDebugCrop.setVisibility(View.GONE);
             showScoreWidgets(false);
             if (rowAlertCount != null) rowAlertCount.setVisibility(View.GONE);
+            if (tvLightIndicator != null) tvLightIndicator.setVisibility(View.GONE);  // ← esconde ícone de luz
 
             if (imageAnalysis != null) imageAnalysis.clearAnalyzer();
             stopAlarm();
@@ -552,6 +708,15 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void startCountdown() {
+        if (classifier == null) {
+            tvStatus.setText("ERRO: MODELO IA NÃO CARREGADO");
+            tvStatus.setBackgroundResource(R.drawable.status_chip_alert);
+            tvStatus.setTextColor(0xFFE53935);
+            android.widget.Toast.makeText(this,
+                    "O modelo de IA não está disponível. Reinicie a aplicação.",
+                    android.widget.Toast.LENGTH_LONG).show();
+            return;   // ← impede tudo o resto
+        }
         final Handler handler = new Handler(Looper.getMainLooper());
         tvStatus.setText("Prepare-se…");
         tvStatus.setBackgroundResource(R.drawable.status_chip_idle);
@@ -566,26 +731,32 @@ public class MainActivity extends AppCompatActivity {
             if (ivDebugCrop != null) ivDebugCrop.setVisibility(View.VISIBLE);
             showScoreWidgets(true);
             if (rowAlertCount != null) rowAlertCount.setVisibility(View.VISIBLE);
+            updateLightIndicator();
 
             sessionTimerHandler.post(sessionTimerRunnable);
 
             if (imageAnalysis != null) {
                 imageAnalysis.setAnalyzer(cameraExecutor, image -> {
+                    if (!isMonitoring || classifier == null) {
+                        image.close();
+                        return;
+                    }
                     image.close();
-                    if (!isMonitoring || classifier == null) return;
 
                     runOnUiThread(() -> {
                         if (!isMonitoring || classifier == null) return;
-                        Bitmap bitmap = viewFinder.getBitmap();
+
+                        final Bitmap bitmap = viewFinder.getBitmap();
                         if (bitmap == null) return;
 
                         cameraExecutor.execute(() -> {
+                            if (!isMonitoring || classifier == null) return;
                             float score = classifier.analyzeImage(bitmap);
                             Bitmap debugBmp = classifier.getLastDebugBitmap();
                             runOnUiThread(() -> {
-                                if (ivDebugCrop != null && debugBmp != null) {
+                                if (!isMonitoring) return;
+                                if (ivDebugCrop != null && debugBmp != null)
                                     ivDebugCrop.setImageBitmap(debugBmp);
-                                }
                                 processFrame(score);
                             });
                         });
@@ -602,33 +773,33 @@ public class MainActivity extends AppCompatActivity {
     private void processFrame(float score) {
         if (!isMonitoring) return;
 
-        // Atualizar posição da face overlay
+        // Atualiza threshold com offset de luz
+        confidenceThreshold = thresholdManager.getEffectiveThreshold();
+
         updateFaceOverlay();
 
         if (score == FatigueClassifier.NO_FACE) {
-            resetScoreBuffer();
-            tvStatus.setText("ROSTO NÃO DETETADO");
+            // Erro interno do modelo (raro) – não bloqueia a monitorização,
+            // apenas mostra um aviso e mantém o último estado.
+            tvStatus.setText("ERRO NO MODELO");
             tvStatus.setBackgroundResource(R.drawable.status_chip_warn);
             tvStatus.setTextColor(0xFFC8AB5A);
-            updatePeakMeter(0f);
-            if (pbLiveScore    != null) pbLiveScore.setProgress(0);
-            if (tvScoreNumeric != null) tvScoreNumeric.setText("—");
-            if (tvScoreInPanel != null) {
-                tvScoreInPanel.setText("—");
-                tvScoreInPanel.setTextColor(0xFF3A3F50);
-            }
-            stopAlarm();
-            fatigueStartTime = 0;
             return;
         }
 
-        if (classifier.getLastLuminance() < AppConstants.LOW_LIGHT_THRESHOLD) {
+        // Aviso de pouca luz (sem bloquear)
+        if (classifier != null && classifier.getLastLuminance() < AppConstants.LOW_LIGHT_THRESHOLD) {
             tvStatus.setText("POUCA LUZ — ANÁLISE EM CURSO");
             tvStatus.setBackgroundResource(R.drawable.status_chip_idle);
             tvStatus.setTextColor(0xFF5A5F6E);
         }
 
         updateUI(smoothScore(score));
+
+        if (System.currentTimeMillis() - lastLightUpdate > 1000) {
+            updateLightIndicator();
+            lastLightUpdate = System.currentTimeMillis();
+        }
     }
 
     private void updateFaceOverlay() {
@@ -640,7 +811,6 @@ public class MainActivity extends AppCompatActivity {
             return;
         }
 
-        // Escalar as coordenadas do frame original para as coordenadas do viewFinder
         Bitmap lastFrame = viewFinder.getBitmap();
         if (lastFrame == null) {
             ivFaceOverlay.setVisibility(View.GONE);
@@ -658,8 +828,6 @@ public class MainActivity extends AppCompatActivity {
         int w = right  - left;
         int h = bottom - top;
 
-        // Posicionar a overlay sobre o viewFinder
-        // O viewFinder começa no topo do layoutMonitoring
         int[] vfLoc = new int[2];
         viewFinder.getLocationOnScreen(vfLoc);
         int[] overlayParentLoc = new int[2];
@@ -698,7 +866,6 @@ public class MainActivity extends AppCompatActivity {
 
         long duration = (fatigueStartTime == 0) ? 0 : (System.currentTimeMillis() - fatigueStartTime);
 
-        // Score colour: green → amber → red
         int scoreColor;
         if (score < confidenceThreshold * 0.6f) {
             scoreColor = 0xFF2ECC71;
@@ -854,7 +1021,6 @@ public class MainActivity extends AppCompatActivity {
         card.setLayoutParams(cardParams);
         card.setPadding(dp16, dp12, dp16, dp12);
 
-        // Date row
         LinearLayout dateRow = new LinearLayout(this);
         dateRow.setOrientation(LinearLayout.HORIZONTAL);
         dateRow.setGravity(android.view.Gravity.CENTER_VERTICAL);
@@ -880,7 +1046,6 @@ public class MainActivity extends AppCompatActivity {
         }
         card.addView(dateRow);
 
-        // Divider
         View divider = new View(this);
         divider.setBackgroundColor(0xFF0E1018);
         LinearLayout.LayoutParams divP = new LinearLayout.LayoutParams(
@@ -889,7 +1054,6 @@ public class MainActivity extends AppCompatActivity {
         divider.setLayoutParams(divP);
         card.addView(divider);
 
-        // Metrics row
         LinearLayout row = new LinearLayout(this);
         row.setOrientation(LinearLayout.HORIZONTAL);
         row.setGravity(android.view.Gravity.CENTER);
@@ -1054,6 +1218,34 @@ public class MainActivity extends AppCompatActivity {
         getSharedPreferences(AppConstants.PREFS_NAME, MODE_PRIVATE)
                 .edit().putBoolean(AppConstants.KEY_ONBOARDING_DONE, true).apply();
         dialog.dismiss();
+
+        // Aguarda o diálogo de onboarding desaparecer antes de mostrar a sugestão
+        new Handler(Looper.getMainLooper()).postDelayed(this::suggestCalibration, 400);
+    }
+
+    /**
+     * Se o utilizador nunca calibrou, sugere calibrar agora.
+     * Caso contrário, não faz nada.
+     */
+    private void suggestCalibration() {
+        Log.d(TAG, "suggestCalibration chamado. Calibrado? " + thresholdManager.isCalibrated());
+
+        if (!thresholdManager.isCalibrated()) {
+            // Garante que corre na UI thread
+            runOnUiThread(() -> {
+                new AlertDialog.Builder(MainActivity.this)
+                        .setTitle("Calibração pessoal")
+                        .setMessage("Recomendamos calibrar o detector ao seu rosto antes de começar.\n\n"
+                                + "É rápido (10 segundos) e melhora a precisão dos alertas.")
+                        .setPositiveButton("Calibrar agora", (d, which) -> {
+                            Intent intent = new Intent(MainActivity.this, CalibrationActivity.class);
+                            calibrationLauncher.launch(intent);
+                        })
+                        .setNegativeButton("Mais tarde", null)
+                        .setCancelable(false)   // evita fechar sem escolher
+                        .show();
+            });
+        }
     }
 
     // =========================================================================
@@ -1061,19 +1253,41 @@ public class MainActivity extends AppCompatActivity {
     // =========================================================================
 
     private void startCamera() {
-        if (cameraLoadingOverlay != null) cameraLoadingOverlay.setVisibility(View.VISIBLE);
+        if (cameraLoadingOverlay != null) {
+            cameraLoadingOverlay.setVisibility(View.VISIBLE);
+        }
+
+        // Timeout: se após 8s a câmara não arrancar, desiste e mostra erro
+        final Handler timeoutHandler = new Handler(Looper.getMainLooper());
+        final Runnable timeoutRunnable = new Runnable() {
+            @Override
+            public void run() {
+                if (cameraLoadingOverlay != null && cameraLoadingOverlay.getVisibility() == View.VISIBLE) {
+                    cameraLoadingOverlay.setVisibility(View.GONE);
+                    Toast.makeText(MainActivity.this,
+                            "Não foi possível iniciar a câmara. Reinicie a aplicação.",
+                            Toast.LENGTH_LONG).show();
+                    Log.e(TAG, "Câmara não entrou em streaming após timeout.");
+                }
+            }
+        };
+        timeoutHandler.postDelayed(timeoutRunnable, 8000);  // 8 segundos
 
         ProcessCameraProvider.getInstance(this).addListener(() -> {
             try {
                 ProcessCameraProvider provider = ProcessCameraProvider.getInstance(this).get();
                 Preview preview = new Preview.Builder().build();
 
+                // Cancela o timeout assim que o preview iniciar
                 viewFinder.getPreviewStreamState().observe(this, state -> {
-                    if (state == PreviewView.StreamState.STREAMING && cameraLoadingOverlay != null) {
-                        cameraLoadingOverlay.animate()
-                                .alpha(0f).setDuration(400)
-                                .withEndAction(() -> cameraLoadingOverlay.setVisibility(View.GONE))
-                                .start();
+                    if (state == PreviewView.StreamState.STREAMING) {
+                        timeoutHandler.removeCallbacks(timeoutRunnable);
+                        if (cameraLoadingOverlay != null) {
+                            cameraLoadingOverlay.animate()
+                                    .alpha(0f).setDuration(400)
+                                    .withEndAction(() -> cameraLoadingOverlay.setVisibility(View.GONE))
+                                    .start();
+                        }
                     }
                 });
 
@@ -1081,11 +1295,17 @@ public class MainActivity extends AppCompatActivity {
                 imageAnalysis = new ImageAnalysis.Builder()
                         .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
                         .build();
+                provider.unbindAll();
                 provider.bindToLifecycle(
                         this, CameraSelector.DEFAULT_FRONT_CAMERA, preview, imageAnalysis);
+                Log.d(TAG, "Câmara iniciada com sucesso. imageAnalysis = " + imageAnalysis);
             } catch (Exception e) {
-                Log.e(TAG, "Erro ao iniciar câmara", e);
+                Log.e(TAG, "Erro crítico ao iniciar câmara: " + e.getMessage(), e);
+                imageAnalysis = null;
+                timeoutHandler.removeCallbacks(timeoutRunnable);
                 if (cameraLoadingOverlay != null) cameraLoadingOverlay.setVisibility(View.GONE);
+                runOnUiThread(() -> Toast.makeText(this,
+                        "Falha ao abrir a câmara. Reinicie a app.", Toast.LENGTH_LONG).show());
             }
         }, ContextCompat.getMainExecutor(this));
     }
@@ -1108,15 +1328,28 @@ public class MainActivity extends AppCompatActivity {
         stopVibration();
     }
 
+    private void updateLightIndicator() {
+        if (tvLightIndicator == null || thresholdManager == null) return;
+        float offset = thresholdManager.getCurrentLuxOffset();
+        String icon;
+        if (offset >= 0.12f) {
+            icon = "🌙";   // escuro
+        } else if (offset >= 0.06f) {
+            icon = "🌥️";  // penumbra
+        } else {
+            icon = "☀️";   // claro
+        }
+        tvLightIndicator.setText(icon);
+        tvLightIndicator.setVisibility(View.VISIBLE);
+    }
+
     @Override
-    public void onRequestPermissionsResult(int code,
-                                           @NonNull String[] perms,
+    public void onRequestPermissionsResult(int code, @NonNull String[] perms,
                                            @NonNull int[] results) {
         super.onRequestPermissionsResult(code, perms, results);
         if (code == AppConstants.CAMERA_PERMISSION_CODE) {
             if (results.length > 0 && results[0] == PackageManager.PERMISSION_GRANTED) {
-                new Handler(Looper.getMainLooper()).postDelayed(
-                        this::startCamera, AppConstants.CAMERA_INIT_DELAY_MS);
+                onCameraPermissionGranted();
             } else {
                 android.widget.Toast.makeText(this,
                         "A câmara é necessária para detectar fadiga.",
