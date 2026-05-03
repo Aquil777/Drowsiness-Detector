@@ -42,6 +42,14 @@ public class ThresholdManager implements SensorEventListener {
 
     private volatile float currentLux = 100f;  // assume dia até o sensor responder
 
+    /**
+     * Permite atualizar o lux a partir de uma fonte externa (ex.: câmara).
+     * Usado como fallback quando o sensor de hardware não está disponível.
+     */
+    public void setCurrentLux(float lux) {
+        this.currentLux = lux;
+    }
+
     public ThresholdManager(Context context) {
         this.context       = context.getApplicationContext();
         this.sensorManager = (SensorManager) context.getSystemService(Context.SENSOR_SERVICE);
@@ -50,6 +58,8 @@ public class ThresholdManager implements SensorEventListener {
         if (lightSensor == null) {
             Log.w(TAG, "Sensor de luz não disponível neste dispositivo");
         }
+
+        Log.d(TAG, "Sensor de luz disponível: " + (lightSensor != null));
     }
 
     // =========================================================================

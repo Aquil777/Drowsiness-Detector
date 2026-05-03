@@ -796,6 +796,21 @@ public class MainActivity extends AppCompatActivity {
 
         updateUI(smoothScore(score));
 
+        // Estima lux a partir da luminância da imagem (fallback se sensor de luz não funcionar)
+        if (thresholdManager.getCurrentLux() == 100 && classifier != null) {
+            float luminance = classifier.getLastLuminance();  // já tens este método
+            float estimatedLux;
+            if (luminance < 30) {
+                estimatedLux = 2.0f;   // muito escuro
+            } else if (luminance < 60) {
+                estimatedLux = 10.0f;  // penumbra
+            } else {
+                estimatedLux = 100.0f; // bem iluminado
+            }
+            thresholdManager.setCurrentLux(estimatedLux);
+            Log.d(TAG, "Lux estimado pela câmara: " + estimatedLux + " (luminância=" + luminance + ")");
+        }
+
         if (System.currentTimeMillis() - lastLightUpdate > 1000) {
             updateLightIndicator();
             lastLightUpdate = System.currentTimeMillis();
@@ -1341,6 +1356,21 @@ public class MainActivity extends AppCompatActivity {
         }
         tvLightIndicator.setText(icon);
         tvLightIndicator.setVisibility(View.VISIBLE);
+        Log.d(TAG, "Luz: lux=" + thresholdManager.getCurrentLux() + " offset=" + offset);
+    }
+
+    private void updateEffectiveThresholdUI() {
+        // Atualiza o texto nas Definições (se estiver visível)
+        TextView tvInfo = findViewById(R.id.tvThresholdInfo);
+        if (tvInfo != null && layoutSettings.getVisibility() == View.VISIBLE) {
+            float effective = thresholdManager.getEffectiveThreshold();
+            float offset = thresholdManager.getCurrentLuxOffset();
+            if (offset > 0f) {
+                tvInfo.setText(String.format(Locale.getDefault(), "%.2f  (+%.2f luz)", effective, offset));
+            } else {
+                tvInfo.setText(String.format(Locale.getDefault(), "%.2f", effective));
+            }
+        }
     }
 
     @Override
