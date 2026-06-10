@@ -36,9 +36,11 @@
             android:name=".MainActivity"
             android:exported="false" />
 
-        <!-- SettingsActivity separado já não é usado — MainActivity tem settings inline -->
         <activity
-            android:name=".SettingsActivity"
+            android:name=".SessionDetailActivity"
+            android:label="Detalhe da Sessão"
+            android:parentActivityName=".MainActivity"
+            android:theme="@style/Theme.DrowsinessDetector"
             android:exported="false" />
 
     </application>

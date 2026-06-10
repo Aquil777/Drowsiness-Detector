@@ -598,7 +598,7 @@
                     android:textSize="12sp"
                     android:fontFamily="@font/jetbrains_mono_bold"
                     android:letterSpacing="0.06"
-                    app:backgroundTint="#1A3A6B"
+                    app:backgroundTint="#8f793d"
                     app:strokeColor="#2A4A8B"
                     app:strokeWidth="1dp"
                     app:cornerRadius="12dp"/>

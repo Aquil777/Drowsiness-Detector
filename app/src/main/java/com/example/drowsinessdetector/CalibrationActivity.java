@@ -552,7 +552,7 @@ public class CalibrationActivity extends AppCompatActivity {
                     "  fechados=" + mediaFechados +
                     " (" + closedScores.size() + " amostras)");
 
-            boolean erroAbertos    = mediaAbertos  > 0.40f;
+            boolean erroAbertos    = mediaAbertos  > 0.55f;
             boolean erroFechados   = mediaFechados < 0.15f;
             boolean poucasAmostras = openScores.size() < 5 || closedScores.size() < 5;
 

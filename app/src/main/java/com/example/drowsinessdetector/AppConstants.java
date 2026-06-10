@@ -18,8 +18,8 @@ public final class AppConstants {
     public static final float  DEFAULT_CONFIDENCE     = 0.45f;   // alinhado com o threshold do modelo v6
     public static final int    DEFAULT_SENSITIVITY    = 45;    // alinhado com DEFAULT_CONFIDENCE
 
-    public static final int    SMOOTH_WINDOW          = 2;     // menos diluição
-    public static final long   FATIGUE_DURATION_MS    = 300L;  // mais reativo
+    public static final int    SMOOTH_WINDOW          = 4;     // menos diluição
+    public static final long   FATIGUE_DURATION_MS    = 1500L;  // mais reativo
 
     // CLAHE
     public static final float  DEFAULT_CLAHE_CLIP     = 2.0f;   // clipLimit padrão igual ao treino

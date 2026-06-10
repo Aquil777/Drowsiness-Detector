@@ -126,6 +126,7 @@ public class MainActivity extends AppCompatActivity {
     private TextToSpeech tts;
     private boolean      isAlarmPlaying = false;
     private long         lastVoiceTime  = 0;
+    private boolean      alertEpisodeActive = false;  // true enquanto fadiga persistir
 
     // ── State ─────────────────────────────────────────────────────────────────
     private boolean isMonitoring        = false;
@@ -174,21 +175,18 @@ public class MainActivity extends AppCompatActivity {
 
         sessionRepository = new SessionRepository(this);
 
-        // ── ThresholdManager — inicializa antes de setupSeekBar() ────────────
         thresholdManager = new ThresholdManager(this);
 
-        // ── Launcher para receber resultado da calibração ─────────────────────
         calibrationLauncher = registerForActivityResult(
                 new ActivityResultContracts.StartActivityForResult(),
                 result -> {
                     if (result.getResultCode() == CalibrationActivity.RESULT_CALIBRATED) {
-                        // Recarrega threshold pessoal após calibração bem-sucedida
                         confidenceThreshold = thresholdManager.getEffectiveThreshold();
                         syncSeekBarToThreshold();
-                        android.widget.Toast.makeText(this,
+                        Toast.makeText(this,
                                 "Threshold personalizado: " +
                                         String.format(Locale.getDefault(), "%.2f", confidenceThreshold),
-                                android.widget.Toast.LENGTH_LONG).show();
+                                Toast.LENGTH_LONG).show();
                     }
                 });
 
@@ -203,22 +201,16 @@ public class MainActivity extends AppCompatActivity {
         setupClearHistoryButton();
         setupHelpButton();
         setupScoreVizOptions();
-        setupCalibrateButton();   // ← NOVO
+        setupCalibrateButton();
 
         btnStartStop.setOnClickListener(v -> toggleMonitoring());
         setMonitoringState(false);
         if (ivFaceOverlay != null) ivFaceOverlay.setVisibility(View.GONE);
 
         requestCameraPermission();
-
         checkAndShowOnboarding();
     }
 
-    /**
-     * Mostra o onboarding se for a primeira utilização E a permissão da câmara
-     * já tiver sido concedida. Caso contrário, o diálogo será mostrado mais tarde,
-     * depois de a permissão ser concedida.
-     */
     private void checkAndShowOnboarding() {
         SharedPreferences prefs = getSharedPreferences(AppConstants.PREFS_NAME, MODE_PRIVATE);
         boolean onboardingDone = prefs.getBoolean(AppConstants.KEY_ONBOARDING_DONE, false);
@@ -227,13 +219,8 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    /**
-     * Chamado quando a permissão foi concedida (quer no arranque, quer
-     * após o utilizador a ter aceite).
-     */
     private void onCameraPermissionGranted() {
         startCamera();
-        // Se o onboarding ainda não foi feito, mostra agora
         SharedPreferences prefs = getSharedPreferences(AppConstants.PREFS_NAME, MODE_PRIVATE);
         if (!prefs.getBoolean(AppConstants.KEY_ONBOARDING_DONE, false)) {
             showOnboardingDialog();
@@ -256,29 +243,21 @@ public class MainActivity extends AppCompatActivity {
                 AppConstants.DEFAULT_CLAHE_CLIP);
         if (classifier != null) classifier.setClaheClipLimit(restoredClip);
 
-        // Regista o sensor de luz e sincroniza o threshold
         thresholdManager.register();
         confidenceThreshold = thresholdManager.getEffectiveThreshold();
 
-        // Reinicia a câmara se ela não estiver ativa
         restartCameraIfNeeded();
     }
 
-    /**
-     * Volta a ligar a câmara se a monitorização não está a correr e a
-     * permissão já foi concedida. Isto resolve o problema depois de regressar
-     * da CalibrationActivity ou de colocar a app em pausa.
-     */
     private void restartCameraIfNeeded() {
         if (!isMonitoring && allPermissionsGranted()) {
-            // Liberta o imageAnalysis antigo (se existir) e volta a iniciar
             if (imageAnalysis != null) {
                 imageAnalysis.clearAnalyzer();
             }
             ProcessCameraProvider.getInstance(this).addListener(() -> {
                 try {
                     ProcessCameraProvider provider = ProcessCameraProvider.getInstance(this).get();
-                    provider.unbindAll(); // desliga tudo o que ainda esteja ligado
+                    provider.unbindAll();
                     Preview preview = new Preview.Builder().build();
                     preview.setSurfaceProvider(viewFinder.getSurfaceProvider());
                     imageAnalysis = new ImageAnalysis.Builder()
@@ -297,7 +276,6 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onPause() {
         super.onPause();
-        // ── Liberta sensor de luz para poupar bateria ─────────────────────────
         thresholdManager.unregister();
     }
 
@@ -329,7 +307,7 @@ public class MainActivity extends AppCompatActivity {
         rowAlertCount        = findViewById(R.id.rowAlertCount);
         rowScoreBar          = findViewById(R.id.rowScoreBar);
         tvScoreInPanel       = findViewById(R.id.tvScoreInPanel);
-        tvLightIndicator = findViewById(R.id.tvLightIndicator);
+        tvLightIndicator     = findViewById(R.id.tvLightIndicator);
 
         optionScoreBar   = findViewById(R.id.optionScoreBar);
         optionScoreMeter = findViewById(R.id.optionScoreMeter);
@@ -371,9 +349,9 @@ public class MainActivity extends AppCompatActivity {
         } catch (Exception e) {
             Log.e(TAG, "Erro ao inicializar classificador: " + e.getMessage(), e);
             classifier = null;
-            runOnUiThread(() -> android.widget.Toast.makeText(
+            runOnUiThread(() -> Toast.makeText(
                     this, "Erro ao carregar modelo de IA. Verifique se o ficheiro " +
-                            "modelo_fadiga.tflite está em assets.", android.widget.Toast.LENGTH_LONG).show());
+                            "modelo_fadiga.tflite está em assets.", Toast.LENGTH_LONG).show());
         }
     }
 
@@ -395,31 +373,19 @@ public class MainActivity extends AppCompatActivity {
     }
 
     // =========================================================================
-    // Calibrar button (nas Definições)
+    // Calibrate button
     // =========================================================================
 
-    /**
-     * Configura o botão "CALIBRAR" no separador de Definições.
-     * Adiciona ao teu layout de definições um MaterialButton com
-     * android:id="@+id/btnCalibrate".
-     */
     private void setupCalibrateButton() {
         MaterialButton btnCalibrate = findViewById(R.id.btnCalibrate);
         if (btnCalibrate == null) return;
-
-        // Mostra se já está calibrado
         updateCalibrateButtonLabel(btnCalibrate);
-
         btnCalibrate.setOnClickListener(v -> {
             Intent intent = new Intent(this, CalibrationActivity.class);
             calibrationLauncher.launch(intent);
         });
     }
 
-    /**
-     * Atualiza a label do botão conforme o estado de calibração.
-     * "CALIBRAR (não calibrado)" vs "RECALIBRAR (0.xx)"
-     */
     private void updateCalibrateButtonLabel(MaterialButton btn) {
         if (thresholdManager.isCalibrated()) {
             btn.setText(String.format(Locale.getDefault(),
@@ -429,16 +395,11 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    /**
-     * Sincroniza o SeekBar de sensibilidade com o threshold efectivo actual.
-     * Chamado após calibração bem-sucedida.
-     */
     private void syncSeekBarToThreshold() {
         SeekBar sb = findViewById(R.id.sbSensitivity);
         if (sb == null) return;
         int progress = (int)(thresholdManager.getPersonalThreshold() * 100);
         sb.setProgress(progress);
-
         MaterialButton btnCalibrate = findViewById(R.id.btnCalibrate);
         if (btnCalibrate != null) updateCalibrateButtonLabel(btnCalibrate);
     }
@@ -524,7 +485,6 @@ public class MainActivity extends AppCompatActivity {
             } else if (id == R.id.nav_settings) {
                 layoutSettings.setVisibility(View.VISIBLE);
                 updateLowLightSuggestion();
-                // Atualiza label do botão de calibrar ao abrir definições
                 MaterialButton btnCalibrate = findViewById(R.id.btnCalibrate);
                 if (btnCalibrate != null) updateCalibrateButtonLabel(btnCalibrate);
             }
@@ -548,33 +508,31 @@ public class MainActivity extends AppCompatActivity {
         TextView mode  = findViewById(R.id.tvSensitivityMode);
         if (sb == null || label == null) return;
 
-        // Usa o threshold efectivo como ponto de partida.
-        // Se o utilizador já calibrou, o SeekBar reflete o threshold pessoal.
-        // Caso contrário usa o valor guardado (ou DEFAULT_SENSITIVITY).
         SharedPreferences prefs = getSharedPreferences(AppConstants.PREFS_NAME, MODE_PRIVATE);
-        int saved;
-        if (thresholdManager.isCalibrated()) {
-            // Mostra o threshold pessoal no SeekBar (sem o offset de luz)
-            saved = (int)(thresholdManager.getPersonalThreshold() * 100);
-        } else {
-            saved = prefs.getInt(AppConstants.KEY_SENSITIVITY, AppConstants.DEFAULT_SENSITIVITY);
-        }
+        // KEY_FATIGUE_THRESHOLD é escrito tanto pela calibração como pelo ajuste manual do slider.
+        // Por isso é sempre a fonte de verdade — sem distinção entre os dois casos.
+        int saved = (int)(thresholdManager.getPersonalThreshold() * 100);
         sb.setProgress(saved);
         confidenceThreshold = thresholdManager.getEffectiveThreshold();
         updateSensitivityLabel(label, mode, saved);
 
         sb.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override public void onProgressChanged(SeekBar s, int p, boolean u) {
-                // O SeekBar ajuste manual sobrepõe temporariamente o threshold pessoal.
-                // O offset de luz continua a ser aplicado por cima.
                 confidenceThreshold = (p / 100f) + thresholdManager.getCurrentLuxOffset();
                 confidenceThreshold = Math.min(confidenceThreshold, 0.80f);
                 updateSensitivityLabel(label, mode, p);
             }
             @Override public void onStartTrackingTouch(SeekBar s) {}
             @Override public void onStopTrackingTouch(SeekBar s) {
+                float newThreshold = s.getProgress() / 100f;
                 getSharedPreferences(AppConstants.PREFS_NAME, MODE_PRIVATE)
-                        .edit().putInt(AppConstants.KEY_SENSITIVITY, s.getProgress()).apply();
+                        .edit()
+                        .putInt(AppConstants.KEY_SENSITIVITY, s.getProgress())
+                        // guarda como threshold pessoal — sobrepõe o valor da calibração
+                        .putFloat(AppConstants.KEY_FATIGUE_THRESHOLD, newThreshold)
+                        .apply();
+                // atualiza imediatamente (com offset de luz por cima)
+                confidenceThreshold = thresholdManager.getEffectiveThreshold();
             }
         });
     }
@@ -624,6 +582,8 @@ public class MainActivity extends AppCompatActivity {
     private void setupClearHistoryButton() {
         MaterialButton btnClear = findViewById(R.id.btnClearHistory);
         if (btnClear == null) return;
+        btnClear.setBackgroundTintList(ColorStateList.valueOf(0xFFB71C1C));
+        btnClear.setTextColor(0xFFFFFFFF);
         btnClear.setOnClickListener(v -> {
             sessionRepository.clearAll();
             currentSession = null;
@@ -647,7 +607,6 @@ public class MainActivity extends AppCompatActivity {
             fatigueStartTime = 0;
             resetScoreBuffer();
 
-            // Atualiza threshold com offset de luz actual antes de começar
             confidenceThreshold = thresholdManager.getEffectiveThreshold();
 
             btnStartStop.setEnabled(false);
@@ -665,7 +624,7 @@ public class MainActivity extends AppCompatActivity {
             if (ivDebugCrop != null) ivDebugCrop.setVisibility(View.GONE);
             showScoreWidgets(false);
             if (rowAlertCount != null) rowAlertCount.setVisibility(View.GONE);
-            if (tvLightIndicator != null) tvLightIndicator.setVisibility(View.GONE);  // ← esconde ícone de luz
+            if (tvLightIndicator != null) tvLightIndicator.setVisibility(View.GONE);
 
             if (imageAnalysis != null) imageAnalysis.clearAnalyzer();
             stopAlarm();
@@ -679,9 +638,9 @@ public class MainActivity extends AppCompatActivity {
 
             if (currentSession != null && currentSession.getEventCount() > 0) {
                 sessionRepository.saveSession(currentSession);
-                android.widget.Toast.makeText(this,
+                Toast.makeText(this,
                         currentSession.getEventCount() + " alerta(s) registado(s)",
-                        android.widget.Toast.LENGTH_SHORT).show();
+                        Toast.LENGTH_SHORT).show();
             }
 
             tvStatus.setText("SISTEMA INATIVO");
@@ -695,6 +654,7 @@ public class MainActivity extends AppCompatActivity {
     private void resetScoreBuffer() {
         scoreIndex = 0;
         scoreCount = 0;
+        alertEpisodeActive = false;
         for (int i = 0; i < AppConstants.SMOOTH_WINDOW; i++) scoreBuffer[i] = 0f;
     }
 
@@ -712,10 +672,10 @@ public class MainActivity extends AppCompatActivity {
             tvStatus.setText("ERRO: MODELO IA NÃO CARREGADO");
             tvStatus.setBackgroundResource(R.drawable.status_chip_alert);
             tvStatus.setTextColor(0xFFE53935);
-            android.widget.Toast.makeText(this,
+            Toast.makeText(this,
                     "O modelo de IA não está disponível. Reinicie a aplicação.",
-                    android.widget.Toast.LENGTH_LONG).show();
-            return;   // ← impede tudo o resto
+                    Toast.LENGTH_LONG).show();
+            return;
         }
         final Handler handler = new Handler(Looper.getMainLooper());
         tvStatus.setText("Prepare-se…");
@@ -773,21 +733,17 @@ public class MainActivity extends AppCompatActivity {
     private void processFrame(float score) {
         if (!isMonitoring) return;
 
-        // Atualiza threshold com offset de luz
         confidenceThreshold = thresholdManager.getEffectiveThreshold();
 
         updateFaceOverlay();
 
         if (score == FatigueClassifier.NO_FACE) {
-            // Erro interno do modelo (raro) – não bloqueia a monitorização,
-            // apenas mostra um aviso e mantém o último estado.
             tvStatus.setText("ERRO NO MODELO");
             tvStatus.setBackgroundResource(R.drawable.status_chip_warn);
             tvStatus.setTextColor(0xFFC8AB5A);
             return;
         }
 
-        // Aviso de pouca luz (sem bloquear)
         if (classifier != null && classifier.getLastLuminance() < AppConstants.LOW_LIGHT_THRESHOLD) {
             tvStatus.setText("POUCA LUZ — ANÁLISE EM CURSO");
             tvStatus.setBackgroundResource(R.drawable.status_chip_idle);
@@ -795,21 +751,6 @@ public class MainActivity extends AppCompatActivity {
         }
 
         updateUI(smoothScore(score));
-
-        // Estima lux a partir da luminância da imagem (fallback se sensor de luz não funcionar)
-        if (thresholdManager.getCurrentLux() == 100 && classifier != null) {
-            float luminance = classifier.getLastLuminance();  // já tens este método
-            float estimatedLux;
-            if (luminance < 30) {
-                estimatedLux = 2.0f;   // muito escuro
-            } else if (luminance < 60) {
-                estimatedLux = 10.0f;  // penumbra
-            } else {
-                estimatedLux = 100.0f; // bem iluminado
-            }
-            thresholdManager.setCurrentLux(estimatedLux);
-            Log.d(TAG, "Lux estimado pela câmara: " + estimatedLux + " (luminância=" + luminance + ")");
-        }
 
         if (System.currentTimeMillis() - lastLightUpdate > 1000) {
             updateLightIndicator();
@@ -910,6 +851,7 @@ public class MainActivity extends AppCompatActivity {
                         score > (confidenceThreshold * 0.7f) ? 0xFF2A2000 : 0xFF0A2010);
             }
             stopAlarm();
+            alertEpisodeActive = false;  // score voltou a normal — próximo alerta é novo episódio
         }
     }
 
@@ -918,7 +860,11 @@ public class MainActivity extends AppCompatActivity {
     // =========================================================================
 
     private void triggerFatigueAlert(float score, long duration) {
-        if (currentSession != null) currentSession.recordEvent(score, duration);
+        // só regista um evento por episódio de fadiga (não por frame)
+        if (!alertEpisodeActive) {
+            alertEpisodeActive = true;
+            if (currentSession != null) currentSession.recordEvent(score, duration);
+        }
         triggerVibration();
         if (useVoiceAlerts) {
             long now = System.currentTimeMillis();
@@ -967,44 +913,18 @@ public class MainActivity extends AppCompatActivity {
     // =========================================================================
 
     private void refreshHistoryTab() {
-        LinearLayout cardCurrent = findViewById(R.id.cardCurrentSession);
-        LinearLayout llCards     = findViewById(R.id.llSessionCards);
-        LinearLayout emptyState  = findViewById(R.id.layoutEmptyState);
-        TextView     tvLabel     = findViewById(R.id.tvHistoryLabel);
-        TextView     tvMeta      = findViewById(R.id.tvSessionMeta);
+        LinearLayout llCards    = findViewById(R.id.llSessionCards);
+        LinearLayout emptyState = findViewById(R.id.layoutEmptyState);
 
         if (llCards == null) return;
 
         List<DriveSession.SessionSnapshot> history = sessionRepository.loadSnapshots();
-        boolean hasCurrentEvents = currentSession != null && currentSession.getEventCount() > 0;
-        boolean hasHistory       = !history.isEmpty();
+        boolean hasCurrent = currentSession != null && currentSession.getEventCount() > 0;
+        boolean hasHistory  = !history.isEmpty();
 
-        if (hasCurrentEvents && cardCurrent != null) {
-            cardCurrent.setVisibility(View.VISIBLE);
-            TextView tvTime   = findViewById(R.id.tvCurrentTime);
-            TextView tvAlerts = findViewById(R.id.tvCurrentAlerts);
-            TextView tvAvg    = findViewById(R.id.tvCurrentAvgScore);
-            TextView tvDur    = findViewById(R.id.tvCurrentDuration);
-
-            long  elapsed = currentSession.getElapsedSeconds();
-            int   alerts  = currentSession.getEventCount();
-            float avg     = currentSession.getAverageScore();
-
-            if (tvTime   != null) tvTime.setText(formatDuration(elapsed));
-            if (tvAlerts != null) tvAlerts.setText(String.valueOf(alerts));
-            if (tvAvg    != null) tvAvg.setText(avg > 0 ? String.format(Locale.getDefault(), "%.2f", avg) : "—");
-            if (tvDur    != null) tvDur.setText(formatDuration(elapsed));
-            if (tvMeta   != null) tvMeta.setText(String.format(Locale.getDefault(),
-                    "%d alerta%s  ·  %s", alerts, alerts == 1 ? "" : "s", formatDuration(elapsed)));
-        } else if (cardCurrent != null) {
-            cardCurrent.setVisibility(View.GONE);
-            if (tvMeta != null) tvMeta.setText("Sem sessão ativa");
-        }
-
-        if (!hasCurrentEvents && !hasHistory) {
+        if (!hasCurrent && !hasHistory) {
             if (emptyState != null) emptyState.setVisibility(View.VISIBLE);
             llCards.setVisibility(View.GONE);
-            if (tvLabel != null) tvLabel.setVisibility(View.GONE);
             return;
         }
 
@@ -1012,119 +932,301 @@ public class MainActivity extends AppCompatActivity {
         llCards.setVisibility(View.VISIBLE);
         llCards.removeAllViews();
 
+        // ── Sessão atual ──────────────────────────────────────────────────────
+        if (hasCurrent) {
+            llCards.addView(makeSectionLabel("SESSÃO ATUAL"));
+            llCards.addView(buildSessionCard(currentSession.toSnapshot(), true));
+        }
+
+        // ── Histórico ─────────────────────────────────────────────────────────
         if (hasHistory) {
-            if (tvLabel != null) tvLabel.setVisibility(View.VISIBLE);
+            llCards.addView(makeSectionLabel("HISTÓRICO"));
             for (DriveSession.SessionSnapshot snap : history) {
-                llCards.addView(buildSessionCard(snap));
+                llCards.addView(buildSessionCard(snap, false));
             }
-        } else {
-            if (tvLabel != null) tvLabel.setVisibility(View.GONE);
         }
     }
 
-    private View buildSessionCard(DriveSession.SessionSnapshot snap) {
-        int dp8  = dp(8);
-        int dp12 = dp(12);
-        int dp16 = dp(16);
+    /**
+     * Card expansível para uma sessão.
+     *
+     * @param snap      dados da sessão
+     * @param isCurrent true = sessão em curso (fundo quente, borda âmbar, pill "EM CURSO")
+     */
+    private View buildSessionCard(DriveSession.SessionSnapshot snap, boolean isCurrent) {
 
-        LinearLayout card = new LinearLayout(this);
-        card.setOrientation(LinearLayout.VERTICAL);
-        card.setBackgroundResource(R.drawable.settings_card);
-        LinearLayout.LayoutParams cardParams = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-        cardParams.setMargins(0, 0, 0, dp8);
-        card.setLayoutParams(cardParams);
-        card.setPadding(dp16, dp12, dp16, dp12);
+        final int C_AMBER   = 0xFFC8AB5A;
+        final int C_GREEN   = 0xFF2ECC71;
+        final int C_RED     = 0xFFE53935;
+        final int C_TEXT    = 0xFFD8D8D8;
+        final int C_MUTED   = 0xFF8A8F9E;
+        final int C_HINT    = 0xFF5A5F6E;
+        final int C_SURFACE = isCurrent ? 0xFF100F0A : 0xFF0D1118;
+        final int C_BORDER  = isCurrent ? C_AMBER    : 0xFF2A2E3D;
 
-        LinearLayout dateRow = new LinearLayout(this);
-        dateRow.setOrientation(LinearLayout.HORIZONTAL);
-        dateRow.setGravity(android.view.Gravity.CENTER_VERTICAL);
-        dateRow.setLayoutParams(new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
-
-        TextView tvDate = new TextView(this);
-        tvDate.setText(snap.date);
-        tvDate.setTextColor(0xFF3A3F50);
-        tvDate.setTextSize(11);
-        LinearLayout.LayoutParams dateP = new LinearLayout.LayoutParams(
-                0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
-        tvDate.setLayoutParams(dateP);
-        dateRow.addView(tvDate);
-
-        if (snap.endDate != null && !snap.endDate.isEmpty()) {
-            String startTime = snap.date.length() > 11 ? snap.date.substring(11) : snap.date;
-            TextView tvTime = new TextView(this);
-            tvTime.setText(startTime + " → " + snap.endDate);
-            tvTime.setTextColor(0xFF2A2F3E);
-            tvTime.setTextSize(11);
-            dateRow.addView(tvTime);
-        }
-        card.addView(dateRow);
-
-        View divider = new View(this);
-        divider.setBackgroundColor(0xFF0E1018);
-        LinearLayout.LayoutParams divP = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, dp(1));
-        divP.setMargins(0, dp8, 0, dp8);
-        divider.setLayoutParams(divP);
-        card.addView(divider);
-
-        LinearLayout row = new LinearLayout(this);
-        row.setOrientation(LinearLayout.HORIZONTAL);
-        row.setGravity(android.view.Gravity.CENTER);
-        row.setLayoutParams(new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
-
-        int alertColor = snap.alertCount > 3 ? 0xFFE53935
-                : snap.alertCount > 0        ? 0xFFC8AB5A
-                : 0xFF2ECC71;
-        row.addView(buildMetric(String.valueOf(snap.alertCount), "alertas", alertColor));
-        row.addView(buildDividerV());
-        row.addView(buildMetric(formatDuration(snap.durationSeconds), "duração", 0xFF2A7AE4));
-        row.addView(buildDividerV());
-
+        // score médio
         float avg = 0f;
         if (snap.events != null && !snap.events.isEmpty()) {
             for (DriveSession.FatigueEvent e : snap.events) avg += e.score;
             avg /= snap.events.size();
         }
-        row.addView(buildMetric(
-                avg > 0 ? String.format(Locale.getDefault(), "%.2f", avg) : "—",
-                "score médio", 0xFFC8AB5A));
-        card.addView(row);
+        final float finalAvg = avg;
+
+        int alertColor = snap.alertCount == 0 ? C_GREEN
+                : snap.alertCount <= 2  ? C_AMBER
+                : C_RED;
+        int avgColor   = avg == 0f  ? C_HINT
+                : avg < .45f ? C_GREEN
+                : avg < .65f ? C_AMBER
+                : C_RED;
+
+        // ── card ─────────────────────────────────────────────────────────────
+        LinearLayout card = new LinearLayout(this);
+        card.setOrientation(LinearLayout.VERTICAL);
+        LinearLayout.LayoutParams cardLp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        cardLp.setMargins(0, 0, 0, dp(8));
+        card.setLayoutParams(cardLp);
+
+        android.graphics.drawable.GradientDrawable cardBg =
+                new android.graphics.drawable.GradientDrawable();
+        cardBg.setColor(C_SURFACE);
+        cardBg.setCornerRadius(dp(6));
+        cardBg.setStroke(dp(1), C_BORDER);
+        card.setBackground(cardBg);
+
+        // ── header (clicável — abre SessionDetailActivity) ───────────────────
+        LinearLayout header = new LinearLayout(this);
+        header.setOrientation(LinearLayout.HORIZONTAL);
+        header.setGravity(android.view.Gravity.CENTER_VERTICAL);
+        header.setPadding(dp(14), dp(13), dp(14), dp(13));
+        header.setLayoutParams(new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
+
+        // dot de severidade
+        View dot = new View(this);
+        android.graphics.drawable.GradientDrawable dotBg =
+                new android.graphics.drawable.GradientDrawable();
+        dotBg.setShape(android.graphics.drawable.GradientDrawable.OVAL);
+        dotBg.setColor(alertColor);
+        dot.setBackground(dotBg);
+        LinearLayout.LayoutParams dotLp = new LinearLayout.LayoutParams(dp(7), dp(7));
+        dotLp.setMargins(0, dp(1), dp(12), 0);
+        dot.setLayoutParams(dotLp);
+        header.addView(dot);
+
+        // bloco central
+        LinearLayout center = new LinearLayout(this);
+        center.setOrientation(LinearLayout.VERTICAL);
+        center.setLayoutParams(new LinearLayout.LayoutParams(
+                0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+
+        // linha data/hora + pill
+        LinearLayout dateRow = new LinearLayout(this);
+        dateRow.setOrientation(LinearLayout.HORIZONTAL);
+        dateRow.setGravity(android.view.Gravity.CENTER_VERTICAL);
+        LinearLayout.LayoutParams dateRowLp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        dateRowLp.setMargins(0, 0, 0, dp(6));
+        dateRow.setLayoutParams(dateRowLp);
+
+        String dateLabel = snap.date
+                + (snap.endDate != null && !snap.endDate.isEmpty()
+                ? "  →  " + snap.endDate : "");
+
+        TextView tvDate = new TextView(this);
+        tvDate.setText(dateLabel);
+        tvDate.setTextColor(C_MUTED);
+        tvDate.setTextSize(10);
+        tvDate.setTypeface(android.graphics.Typeface.MONOSPACE);
+        tvDate.setLayoutParams(new LinearLayout.LayoutParams(
+                0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+        dateRow.addView(tvDate);
+
+        if (isCurrent) {
+            TextView pill = new TextView(this);
+            pill.setText("EM CURSO");
+            pill.setTextColor(C_AMBER);
+            pill.setTextSize(9);
+            pill.setTypeface(android.graphics.Typeface.MONOSPACE);
+            pill.setPadding(dp(6), dp(1), dp(6), dp(1));
+            android.graphics.drawable.GradientDrawable pillBg =
+                    new android.graphics.drawable.GradientDrawable();
+            pillBg.setColor(0x00000000);
+            pillBg.setCornerRadius(dp(3));
+            pillBg.setStroke(dp(1), C_AMBER);
+            pill.setBackground(pillBg);
+            LinearLayout.LayoutParams pillLp = new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+            pillLp.setMargins(dp(8), 0, 0, 0);
+            pill.setLayoutParams(pillLp);
+            dateRow.addView(pill);
+        }
+        center.addView(dateRow);
+
+        // linha stats
+        LinearLayout statsRow = new LinearLayout(this);
+        statsRow.setOrientation(LinearLayout.HORIZONTAL);
+        statsRow.setGravity(android.view.Gravity.CENTER_VERTICAL);
+        statsRow.setLayoutParams(new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
+
+        statsRow.addView(makeStat(String.valueOf(snap.alertCount), "alertas", alertColor, C_MUTED));
+        statsRow.addView(makeStatSpacer());
+        statsRow.addView(makeStat(formatDuration(snap.durationSeconds), "duração", C_TEXT, C_MUTED));
+        statsRow.addView(makeStatSpacer());
+        statsRow.addView(makeStat(
+                finalAvg > 0 ? String.format(Locale.getDefault(), "%.2f", finalAvg) : "—",
+                "avg", avgColor, C_MUTED));
+        center.addView(statsRow);
+
+        header.addView(center);
+
+        // seta de navegação (›)
+        TextView arrow = new TextView(this);
+        arrow.setText("›");
+        arrow.setTextColor(C_HINT);
+        arrow.setTextSize(20);
+        LinearLayout.LayoutParams arrowLp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        arrowLp.setMargins(dp(10), 0, 0, 0);
+        arrow.setLayoutParams(arrowLp);
+        header.addView(arrow);
+
+        card.addView(header);
+
+        // ── clique abre SessionDetailActivity ────────────────────────────────
+        card.setOnClickListener(v -> {
+            String json = new com.google.gson.Gson().toJson(snap);
+            Intent intent = new Intent(this, SessionDetailActivity.class);
+            intent.putExtra(SessionDetailActivity.EXTRA_SNAPSHOT_JSON, json);
+            startActivity(intent);
+        });
+
+        // ripple
+        android.util.TypedValue rippleVal = new android.util.TypedValue();
+        getTheme().resolveAttribute(android.R.attr.selectableItemBackground, rippleVal, true);
+        if (rippleVal.resourceId != 0) {
+            card.setForeground(ContextCompat.getDrawable(this, rippleVal.resourceId));
+        }
+
         return card;
     }
 
-    private LinearLayout buildMetric(String value, String label, int valueColor) {
+    // ── linha de evento ───────────────────────────────────────────────────────
+    private LinearLayout makeEventRow(DriveSession.FatigueEvent ev,
+                                      int timeColor, int trackColor) {
+        int evColor = ev.score < .45f ? 0xFF2ECC71
+                : ev.score < .65f ? 0xFFC8AB5A
+                : 0xFFE53935;
+
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(android.view.Gravity.CENTER_VERTICAL);
+        LinearLayout.LayoutParams rowLp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        rowLp.setMargins(0, 0, 0, dp(7));
+        row.setLayoutParams(rowLp);
+
+        // hora
+        TextView tvTime = new TextView(this);
+        tvTime.setText(ev.timestamp != null ? ev.timestamp : "--:--");
+        tvTime.setTextColor(timeColor);
+        tvTime.setTextSize(11);
+        tvTime.setTypeface(android.graphics.Typeface.MONOSPACE);
+        LinearLayout.LayoutParams timeLp = new LinearLayout.LayoutParams(
+                dp(52), LinearLayout.LayoutParams.WRAP_CONTENT);
+        timeLp.setMargins(0, 0, dp(10), 0);
+        tvTime.setLayoutParams(timeLp);
+        row.addView(tvTime);
+
+        // track + fill
+        FrameLayout track = new FrameLayout(this);
+        LinearLayout.LayoutParams trackLp = new LinearLayout.LayoutParams(0, dp(3), 1f);
+        trackLp.setMargins(0, 0, dp(10), 0);
+        track.setLayoutParams(trackLp);
+
+        android.graphics.drawable.GradientDrawable trackBg =
+                new android.graphics.drawable.GradientDrawable();
+        trackBg.setColor(trackColor);
+        trackBg.setCornerRadius(dp(2));
+        View trackView = new View(this);
+        trackView.setBackground(trackBg);
+        trackView.setLayoutParams(new FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
+        track.addView(trackView);
+
+        android.graphics.drawable.GradientDrawable fillBg =
+                new android.graphics.drawable.GradientDrawable();
+        fillBg.setColor(evColor);
+        fillBg.setCornerRadius(dp(2));
+        View fill = new View(this);
+        fill.setBackground(fillBg);
+        final float sc = ev.score;
+        track.post(() -> {
+            int w = (int)(track.getWidth() * Math.min(1f, Math.max(0f, sc)));
+            fill.setLayoutParams(new FrameLayout.LayoutParams(w,
+                    FrameLayout.LayoutParams.MATCH_PARENT));
+        });
+        track.addView(fill);
+        row.addView(track);
+
+        // score
+        TextView tvScore = new TextView(this);
+        tvScore.setText(String.format(Locale.getDefault(), "%.2f", ev.score));
+        tvScore.setTextColor(evColor);
+        tvScore.setTextSize(11);
+        tvScore.setTypeface(android.graphics.Typeface.MONOSPACE);
+        tvScore.setGravity(android.view.Gravity.END);
+        tvScore.setLayoutParams(new LinearLayout.LayoutParams(
+                dp(32), LinearLayout.LayoutParams.WRAP_CONTENT));
+        row.addView(tvScore);
+
+        return row;
+    }
+
+    // ── stat inline (valor + label) ───────────────────────────────────────────
+    private LinearLayout makeStat(String value, String label, int valColor, int lblColor) {
         LinearLayout col = new LinearLayout(this);
-        col.setOrientation(LinearLayout.VERTICAL);
-        col.setGravity(android.view.Gravity.CENTER);
-        col.setLayoutParams(new LinearLayout.LayoutParams(
-                0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+        col.setOrientation(LinearLayout.HORIZONTAL);
+        col.setGravity(android.view.Gravity.CENTER_VERTICAL);
 
-        TextView tvValue = new TextView(this);
-        tvValue.setText(value);
-        tvValue.setTextColor(valueColor);
-        tvValue.setTextSize(24);
-        tvValue.setTypeface(android.graphics.Typeface.MONOSPACE, android.graphics.Typeface.BOLD);
-        tvValue.setGravity(android.view.Gravity.CENTER);
-        col.addView(tvValue);
+        TextView tvVal = new TextView(this);
+        tvVal.setText(value);
+        tvVal.setTextColor(valColor);
+        tvVal.setTextSize(16);
+        tvVal.setTypeface(android.graphics.Typeface.MONOSPACE, android.graphics.Typeface.BOLD);
+        col.addView(tvVal);
 
-        TextView tvLabel = new TextView(this);
-        tvLabel.setText(label);
-        tvLabel.setTextColor(0xFF3A3F50);
-        tvLabel.setTextSize(10);
-        tvLabel.setGravity(android.view.Gravity.CENTER);
-        col.addView(tvLabel);
+        TextView tvLbl = new TextView(this);
+        tvLbl.setText(" " + label);
+        tvLbl.setTextColor(lblColor);
+        tvLbl.setTextSize(10);
+        tvLbl.setTypeface(android.graphics.Typeface.MONOSPACE);
+        col.addView(tvLbl);
 
         return col;
     }
 
-    private View buildDividerV() {
+    private View makeStatSpacer() {
         View v = new View(this);
-        v.setBackgroundColor(0xFF0E1018);
-        v.setLayoutParams(new LinearLayout.LayoutParams(dp(1), dp(36)));
+        v.setLayoutParams(new LinearLayout.LayoutParams(dp(16), 1));
         return v;
+    }
+
+    // label de secção ("SESSÃO ATUAL" / "HISTÓRICO")
+    private TextView makeSectionLabel(String text) {
+        TextView tv = new TextView(this);
+        tv.setText(text);
+        tv.setTextColor(0xFF5A5F6E);
+        tv.setTextSize(9);
+        tv.setTypeface(android.graphics.Typeface.MONOSPACE);
+        tv.setLetterSpacing(0.14f);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        lp.setMargins(dp(2), dp(4), 0, dp(6));
+        tv.setLayoutParams(lp);
+        return tv;
     }
 
     private String formatDuration(long seconds) {
@@ -1233,20 +1335,12 @@ public class MainActivity extends AppCompatActivity {
         getSharedPreferences(AppConstants.PREFS_NAME, MODE_PRIVATE)
                 .edit().putBoolean(AppConstants.KEY_ONBOARDING_DONE, true).apply();
         dialog.dismiss();
-
-        // Aguarda o diálogo de onboarding desaparecer antes de mostrar a sugestão
         new Handler(Looper.getMainLooper()).postDelayed(this::suggestCalibration, 400);
     }
 
-    /**
-     * Se o utilizador nunca calibrou, sugere calibrar agora.
-     * Caso contrário, não faz nada.
-     */
     private void suggestCalibration() {
         Log.d(TAG, "suggestCalibration chamado. Calibrado? " + thresholdManager.isCalibrated());
-
         if (!thresholdManager.isCalibrated()) {
-            // Garante que corre na UI thread
             runOnUiThread(() -> {
                 new AlertDialog.Builder(MainActivity.this)
                         .setTitle("Calibração pessoal")
@@ -1257,7 +1351,7 @@ public class MainActivity extends AppCompatActivity {
                             calibrationLauncher.launch(intent);
                         })
                         .setNegativeButton("Mais tarde", null)
-                        .setCancelable(false)   // evita fechar sem escolher
+                        .setCancelable(false)
                         .show();
             });
         }
@@ -1272,12 +1366,12 @@ public class MainActivity extends AppCompatActivity {
             cameraLoadingOverlay.setVisibility(View.VISIBLE);
         }
 
-        // Timeout: se após 8s a câmara não arrancar, desiste e mostra erro
         final Handler timeoutHandler = new Handler(Looper.getMainLooper());
         final Runnable timeoutRunnable = new Runnable() {
             @Override
             public void run() {
-                if (cameraLoadingOverlay != null && cameraLoadingOverlay.getVisibility() == View.VISIBLE) {
+                if (cameraLoadingOverlay != null &&
+                        cameraLoadingOverlay.getVisibility() == View.VISIBLE) {
                     cameraLoadingOverlay.setVisibility(View.GONE);
                     Toast.makeText(MainActivity.this,
                             "Não foi possível iniciar a câmara. Reinicie a aplicação.",
@@ -1286,14 +1380,13 @@ public class MainActivity extends AppCompatActivity {
                 }
             }
         };
-        timeoutHandler.postDelayed(timeoutRunnable, 8000);  // 8 segundos
+        timeoutHandler.postDelayed(timeoutRunnable, 8000);
 
         ProcessCameraProvider.getInstance(this).addListener(() -> {
             try {
                 ProcessCameraProvider provider = ProcessCameraProvider.getInstance(this).get();
                 Preview preview = new Preview.Builder().build();
 
-                // Cancela o timeout assim que o preview iniciar
                 viewFinder.getPreviewStreamState().observe(this, state -> {
                     if (state == PreviewView.StreamState.STREAMING) {
                         timeoutHandler.removeCallbacks(timeoutRunnable);
@@ -1348,29 +1441,14 @@ public class MainActivity extends AppCompatActivity {
         float offset = thresholdManager.getCurrentLuxOffset();
         String icon;
         if (offset >= 0.12f) {
-            icon = "🌙";   // escuro
+            icon = "🌙";
         } else if (offset >= 0.06f) {
-            icon = "🌥️";  // penumbra
+            icon = "🌥️";
         } else {
-            icon = "☀️";   // claro
+            icon = "☀️";
         }
         tvLightIndicator.setText(icon);
         tvLightIndicator.setVisibility(View.VISIBLE);
-        Log.d(TAG, "Luz: lux=" + thresholdManager.getCurrentLux() + " offset=" + offset);
-    }
-
-    private void updateEffectiveThresholdUI() {
-        // Atualiza o texto nas Definições (se estiver visível)
-        TextView tvInfo = findViewById(R.id.tvThresholdInfo);
-        if (tvInfo != null && layoutSettings.getVisibility() == View.VISIBLE) {
-            float effective = thresholdManager.getEffectiveThreshold();
-            float offset = thresholdManager.getCurrentLuxOffset();
-            if (offset > 0f) {
-                tvInfo.setText(String.format(Locale.getDefault(), "%.2f  (+%.2f luz)", effective, offset));
-            } else {
-                tvInfo.setText(String.format(Locale.getDefault(), "%.2f", effective));
-            }
-        }
     }
 
     @Override
@@ -1381,9 +1459,9 @@ public class MainActivity extends AppCompatActivity {
             if (results.length > 0 && results[0] == PackageManager.PERMISSION_GRANTED) {
                 onCameraPermissionGranted();
             } else {
-                android.widget.Toast.makeText(this,
+                Toast.makeText(this,
                         "A câmara é necessária para detectar fadiga.",
-                        android.widget.Toast.LENGTH_LONG).show();
+                        Toast.LENGTH_LONG).show();
                 finish();
             }
         }
