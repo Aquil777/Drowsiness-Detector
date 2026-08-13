@@ -1,5 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- activity_splash.xml — Redesigned professional splash -->
 <androidx.constraintlayout.widget.ConstraintLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
@@ -7,7 +6,7 @@
     android:layout_height="match_parent"
     android:background="#080A0F">
 
-    <!-- Subtle grid background texture (drawn via shape) -->
+    <!-- Subtle grid background texture -->
     <View
         android:layout_width="match_parent"
         android:layout_height="match_parent"

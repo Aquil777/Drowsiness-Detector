@@ -60,12 +60,12 @@ public class MainActivity extends AppCompatActivity {
     private TextView tvLightIndicator;
     private long lastLightUpdate = 0;
 
-    // ── Score visualization mode ──────────────────────────────────────────────
+    // Score visualization mode
     private static final int VIZ_BAR   = 0;
     private static final int VIZ_METER = 1;
     private int scoreVizMode = VIZ_BAR;
 
-    // Peak meter bars (16 elements, index 0 = top/highest)
+    // Peak meter bars
     private View[] meterBars;
     private static final int[] BAR_COLORS_ACTIVE = {
             0xFFE53935, 0xFFE53935,
@@ -76,7 +76,7 @@ public class MainActivity extends AppCompatActivity {
     };
     private static final int BAR_COLOR_INACTIVE = 0xFF1A1E2A;
 
-    // ── Alert messages ────────────────────────────────────────────────────────
+    // Alert messages
     private static final String[] ALERT_MESSAGES = {
             "Parece que está a ficar com sono. Se precisar, pare para descansar.",
             "Os seus olhos parecem pesados. Considere fazer uma pausa curta.",
@@ -84,12 +84,12 @@ public class MainActivity extends AppCompatActivity {
             "Está a demonstrar sinais de cansaço. Mantenha-se alerta ou descanse."
     };
 
-    // ── Score smoothing ───────────────────────────────────────────────────────
+    // Score smoothing
     private final float[] scoreBuffer = new float[AppConstants.SMOOTH_WINDOW];
     private int scoreIndex = 0;
     private int scoreCount = 0;
 
-    // ── UI refs ───────────────────────────────────────────────────────────────
+    // UI refs
     private PreviewView      viewFinder;
     private TextView         tvStatus;
     private ProgressBar      pbLiveScore;
@@ -114,37 +114,37 @@ public class MainActivity extends AppCompatActivity {
     private View         radioBar;
     private View         radioMeter;
 
-    // ── Camera ────────────────────────────────────────────────────────────────
+    // Camera
     private ImageAnalysis   imageAnalysis;
     private ExecutorService cameraExecutor;
 
-    // ── AI ────────────────────────────────────────────────────────────────────
+    // AI
     private FatigueClassifier classifier;
 
-    // ── Audio ─────────────────────────────────────────────────────────────────
+    // Audio
     private MediaPlayer  mediaPlayer;
     private TextToSpeech tts;
     private boolean      isAlarmPlaying = false;
     private long         lastVoiceTime  = 0;
     private boolean      alertEpisodeActive = false;  // true enquanto fadiga persistir
 
-    // ── State ─────────────────────────────────────────────────────────────────
+    // State
     private boolean isMonitoring        = false;
     private long    fatigueStartTime    = 0;
     private float   confidenceThreshold = AppConstants.DEFAULT_CONFIDENCE;
     private boolean useVoiceAlerts      = false;
 
-    // ── Threshold adaptativo (calibração + sensor de luz) ────────────────────
+    // Threshold adaptativo (calibração + sensor de luz)
     private ThresholdManager thresholdManager;
 
-    // ── Launcher para CalibrationActivity ────────────────────────────────────
+    // Launcher para CalibrationActivity
     private ActivityResultLauncher<Intent> calibrationLauncher;
 
-    // ── Session ───────────────────────────────────────────────────────────────
+    // Session
     private DriveSession      currentSession;
     private SessionRepository sessionRepository;
 
-    // ── Session timer ─────────────────────────────────────────────────────────
+    // Session timer
     private final Handler  sessionTimerHandler  = new Handler(Looper.getMainLooper());
     private final Runnable sessionTimerRunnable = new Runnable() {
         @Override
@@ -159,10 +159,7 @@ public class MainActivity extends AppCompatActivity {
         }
     };
 
-    // =========================================================================
     // Lifecycle
-    // =========================================================================
-
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -192,7 +189,6 @@ public class MainActivity extends AppCompatActivity {
 
         initClassifier();
         initAudio();
-        initCalibration();
 
         setupNavigation();
         setupSeekBar();
@@ -239,10 +235,6 @@ public class MainActivity extends AppCompatActivity {
         if (swVoice != null) swVoice.setChecked(useVoiceAlerts);
         applyScoreVizMode();
 
-        float restoredClip = prefs.getFloat(AppConstants.KEY_CLAHE_CLIP,
-                AppConstants.DEFAULT_CLAHE_CLIP);
-        if (classifier != null) classifier.setClaheClipLimit(restoredClip);
-
         thresholdManager.register();
         confidenceThreshold = thresholdManager.getEffectiveThreshold();
 
@@ -286,10 +278,7 @@ public class MainActivity extends AppCompatActivity {
         releaseResources();
     }
 
-    // =========================================================================
     // Init
-    // =========================================================================
-
     private void bindViews() {
         layoutMonitoring     = findViewById(R.id.layoutMonitoring);
         layoutSettings       = findViewById(R.id.layoutSettings);
@@ -355,13 +344,6 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    private void initCalibration() {
-        SharedPreferences prefs = getSharedPreferences(AppConstants.PREFS_NAME, MODE_PRIVATE);
-        float savedClip = prefs.getFloat(AppConstants.KEY_CLAHE_CLIP,
-                AppConstants.DEFAULT_CLAHE_CLIP);
-        if (classifier != null) classifier.setClaheClipLimit(savedClip);
-    }
-
     private void requestCameraPermission() {
         if (allPermissionsGranted()) {
             onCameraPermissionGranted();
@@ -372,10 +354,7 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    // =========================================================================
     // Calibrate button
-    // =========================================================================
-
     private void setupCalibrateButton() {
         MaterialButton btnCalibrate = findViewById(R.id.btnCalibrate);
         if (btnCalibrate == null) return;
@@ -404,10 +383,7 @@ public class MainActivity extends AppCompatActivity {
         if (btnCalibrate != null) updateCalibrateButtonLabel(btnCalibrate);
     }
 
-    // =========================================================================
     // Score visualization mode
-    // =========================================================================
-
     private void setupScoreVizOptions() {
         if (optionScoreBar == null || optionScoreMeter == null) return;
 
@@ -467,10 +443,7 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    // =========================================================================
     // Navigation
-    // =========================================================================
-
     private void setupNavigation() {
         BottomNavigationView bottomNav = findViewById(R.id.bottomNavigation);
         bottomNav.setOnItemSelectedListener(item -> {
@@ -498,10 +471,7 @@ public class MainActivity extends AppCompatActivity {
         layoutHistory.setVisibility(View.GONE);
     }
 
-    // =========================================================================
     // Settings
-    // =========================================================================
-
     private void setupSeekBar() {
         SeekBar  sb    = findViewById(R.id.sbSensitivity);
         TextView label = findViewById(R.id.tvSensitivityLabel);
@@ -510,7 +480,6 @@ public class MainActivity extends AppCompatActivity {
 
         SharedPreferences prefs = getSharedPreferences(AppConstants.PREFS_NAME, MODE_PRIVATE);
         // KEY_FATIGUE_THRESHOLD é escrito tanto pela calibração como pelo ajuste manual do slider.
-        // Por isso é sempre a fonte de verdade — sem distinção entre os dois casos.
         int saved = (int)(thresholdManager.getPersonalThreshold() * 100);
         sb.setProgress(saved);
         confidenceThreshold = thresholdManager.getEffectiveThreshold();
@@ -591,10 +560,7 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
-    // =========================================================================
     // Monitoring state machine
-    // =========================================================================
-
     private void toggleMonitoring() {
         setMonitoringState(!isMonitoring);
     }
@@ -726,10 +692,7 @@ public class MainActivity extends AppCompatActivity {
         }, 3000);
     }
 
-    // =========================================================================
     // Frame processing
-    // =========================================================================
-
     private void processFrame(float score) {
         if (!isMonitoring) return;
 
@@ -851,14 +814,11 @@ public class MainActivity extends AppCompatActivity {
                         score > (confidenceThreshold * 0.7f) ? 0xFF2A2000 : 0xFF0A2010);
             }
             stopAlarm();
-            alertEpisodeActive = false;  // score voltou a normal — próximo alerta é novo episódio
+            alertEpisodeActive = false;  // score voltou a normal
         }
     }
 
-    // =========================================================================
     // Alerts
-    // =========================================================================
-
     private void triggerFatigueAlert(float score, long duration) {
         // só regista um evento por episódio de fadiga (não por frame)
         if (!alertEpisodeActive) {
@@ -908,10 +868,7 @@ public class MainActivity extends AppCompatActivity {
         return ALERT_MESSAGES[new Random().nextInt(ALERT_MESSAGES.length)];
     }
 
-    // =========================================================================
     // History tab
-    // =========================================================================
-
     private void refreshHistoryTab() {
         LinearLayout llCards    = findViewById(R.id.llSessionCards);
         LinearLayout emptyState = findViewById(R.id.layoutEmptyState);
@@ -932,13 +889,13 @@ public class MainActivity extends AppCompatActivity {
         llCards.setVisibility(View.VISIBLE);
         llCards.removeAllViews();
 
-        // ── Sessão atual ──────────────────────────────────────────────────────
+        // Sessão atual
         if (hasCurrent) {
             llCards.addView(makeSectionLabel("SESSÃO ATUAL"));
             llCards.addView(buildSessionCard(currentSession.toSnapshot(), true));
         }
 
-        // ── Histórico ─────────────────────────────────────────────────────────
+        // Histórico
         if (hasHistory) {
             llCards.addView(makeSectionLabel("HISTÓRICO"));
             for (DriveSession.SessionSnapshot snap : history) {
@@ -951,7 +908,7 @@ public class MainActivity extends AppCompatActivity {
      * Card expansível para uma sessão.
      *
      * @param snap      dados da sessão
-     * @param isCurrent true = sessão em curso (fundo quente, borda âmbar, pill "EM CURSO")
+     * @param isCurrent true = sessão em curso
      */
     private View buildSessionCard(DriveSession.SessionSnapshot snap, boolean isCurrent) {
 
@@ -980,7 +937,7 @@ public class MainActivity extends AppCompatActivity {
                 : avg < .65f ? C_AMBER
                 : C_RED;
 
-        // ── card ─────────────────────────────────────────────────────────────
+        // card
         LinearLayout card = new LinearLayout(this);
         card.setOrientation(LinearLayout.VERTICAL);
         LinearLayout.LayoutParams cardLp = new LinearLayout.LayoutParams(
@@ -995,7 +952,7 @@ public class MainActivity extends AppCompatActivity {
         cardBg.setStroke(dp(1), C_BORDER);
         card.setBackground(cardBg);
 
-        // ── header (clicável — abre SessionDetailActivity) ───────────────────
+        // header
         LinearLayout header = new LinearLayout(this);
         header.setOrientation(LinearLayout.HORIZONTAL);
         header.setGravity(android.view.Gravity.CENTER_VERTICAL);
@@ -1021,7 +978,7 @@ public class MainActivity extends AppCompatActivity {
         center.setLayoutParams(new LinearLayout.LayoutParams(
                 0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
 
-        // linha data/hora + pill
+        // linha data/hora
         LinearLayout dateRow = new LinearLayout(this);
         dateRow.setOrientation(LinearLayout.HORIZONTAL);
         dateRow.setGravity(android.view.Gravity.CENTER_VERTICAL);
@@ -1082,7 +1039,7 @@ public class MainActivity extends AppCompatActivity {
 
         header.addView(center);
 
-        // seta de navegação (›)
+        // seta de navegação
         TextView arrow = new TextView(this);
         arrow.setText("›");
         arrow.setTextColor(C_HINT);
@@ -1095,7 +1052,7 @@ public class MainActivity extends AppCompatActivity {
 
         card.addView(header);
 
-        // ── clique abre SessionDetailActivity ────────────────────────────────
+        // clique abre SessionDetailActivity
         card.setOnClickListener(v -> {
             String json = new com.google.gson.Gson().toJson(snap);
             Intent intent = new Intent(this, SessionDetailActivity.class);
@@ -1113,79 +1070,7 @@ public class MainActivity extends AppCompatActivity {
         return card;
     }
 
-    // ── linha de evento ───────────────────────────────────────────────────────
-    private LinearLayout makeEventRow(DriveSession.FatigueEvent ev,
-                                      int timeColor, int trackColor) {
-        int evColor = ev.score < .45f ? 0xFF2ECC71
-                : ev.score < .65f ? 0xFFC8AB5A
-                : 0xFFE53935;
-
-        LinearLayout row = new LinearLayout(this);
-        row.setOrientation(LinearLayout.HORIZONTAL);
-        row.setGravity(android.view.Gravity.CENTER_VERTICAL);
-        LinearLayout.LayoutParams rowLp = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-        rowLp.setMargins(0, 0, 0, dp(7));
-        row.setLayoutParams(rowLp);
-
-        // hora
-        TextView tvTime = new TextView(this);
-        tvTime.setText(ev.timestamp != null ? ev.timestamp : "--:--");
-        tvTime.setTextColor(timeColor);
-        tvTime.setTextSize(11);
-        tvTime.setTypeface(android.graphics.Typeface.MONOSPACE);
-        LinearLayout.LayoutParams timeLp = new LinearLayout.LayoutParams(
-                dp(52), LinearLayout.LayoutParams.WRAP_CONTENT);
-        timeLp.setMargins(0, 0, dp(10), 0);
-        tvTime.setLayoutParams(timeLp);
-        row.addView(tvTime);
-
-        // track + fill
-        FrameLayout track = new FrameLayout(this);
-        LinearLayout.LayoutParams trackLp = new LinearLayout.LayoutParams(0, dp(3), 1f);
-        trackLp.setMargins(0, 0, dp(10), 0);
-        track.setLayoutParams(trackLp);
-
-        android.graphics.drawable.GradientDrawable trackBg =
-                new android.graphics.drawable.GradientDrawable();
-        trackBg.setColor(trackColor);
-        trackBg.setCornerRadius(dp(2));
-        View trackView = new View(this);
-        trackView.setBackground(trackBg);
-        trackView.setLayoutParams(new FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
-        track.addView(trackView);
-
-        android.graphics.drawable.GradientDrawable fillBg =
-                new android.graphics.drawable.GradientDrawable();
-        fillBg.setColor(evColor);
-        fillBg.setCornerRadius(dp(2));
-        View fill = new View(this);
-        fill.setBackground(fillBg);
-        final float sc = ev.score;
-        track.post(() -> {
-            int w = (int)(track.getWidth() * Math.min(1f, Math.max(0f, sc)));
-            fill.setLayoutParams(new FrameLayout.LayoutParams(w,
-                    FrameLayout.LayoutParams.MATCH_PARENT));
-        });
-        track.addView(fill);
-        row.addView(track);
-
-        // score
-        TextView tvScore = new TextView(this);
-        tvScore.setText(String.format(Locale.getDefault(), "%.2f", ev.score));
-        tvScore.setTextColor(evColor);
-        tvScore.setTextSize(11);
-        tvScore.setTypeface(android.graphics.Typeface.MONOSPACE);
-        tvScore.setGravity(android.view.Gravity.END);
-        tvScore.setLayoutParams(new LinearLayout.LayoutParams(
-                dp(32), LinearLayout.LayoutParams.WRAP_CONTENT));
-        row.addView(tvScore);
-
-        return row;
-    }
-
-    // ── stat inline (valor + label) ───────────────────────────────────────────
+    // stat inline (valor + label)
     private LinearLayout makeStat(String value, String label, int valColor, int lblColor) {
         LinearLayout col = new LinearLayout(this);
         col.setOrientation(LinearLayout.HORIZONTAL);
@@ -1238,10 +1123,7 @@ public class MainActivity extends AppCompatActivity {
         return (int)(value * getResources().getDisplayMetrics().density);
     }
 
-    // =========================================================================
     // Low light suggestion
-    // =========================================================================
-
     private void updateLowLightSuggestion() {
         View    tip = findViewById(R.id.tvLowLightTip);
         SeekBar sb  = findViewById(R.id.sbSensitivity);
@@ -1251,10 +1133,7 @@ public class MainActivity extends AppCompatActivity {
         tip.setVisibility(isLowLight ? View.VISIBLE : View.GONE);
     }
 
-    // =========================================================================
     // Help / Onboarding
-    // =========================================================================
-
     private void setupHelpButton() {
         MaterialButton btnHelp = findViewById(R.id.btnHelp);
         if (btnHelp != null) btnHelp.setOnClickListener(v -> showOnboardingDialog());
@@ -1357,10 +1236,7 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    // =========================================================================
     // Camera
-    // =========================================================================
-
     private void startCamera() {
         if (cameraLoadingOverlay != null) {
             cameraLoadingOverlay.setVisibility(View.VISIBLE);
@@ -1418,10 +1294,7 @@ public class MainActivity extends AppCompatActivity {
         }, ContextCompat.getMainExecutor(this));
     }
 
-    // =========================================================================
     // Utilities
-    // =========================================================================
-
     private boolean allPermissionsGranted() {
         return ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
                 == PackageManager.PERMISSION_GRANTED;
@@ -1439,16 +1312,20 @@ public class MainActivity extends AppCompatActivity {
     private void updateLightIndicator() {
         if (tvLightIndicator == null || thresholdManager == null) return;
         float offset = thresholdManager.getCurrentLuxOffset();
-        String icon;
+
         if (offset >= 0.12f) {
-            icon = "🌙";
+            tvLightIndicator.setText("POUCA LUZ");
+            tvLightIndicator.setTextColor(0xFFE53935); // vermelho, alinhado com status_chip_alert
+            tvLightIndicator.setTypeface(android.graphics.Typeface.MONOSPACE);
+            tvLightIndicator.setVisibility(View.VISIBLE);
         } else if (offset >= 0.06f) {
-            icon = "🌥️";
+            tvLightIndicator.setText("PENUMBRA");
+            tvLightIndicator.setTextColor(0xFFC8AB5A); // âmbar, alinhado com status_chip_warn
+            tvLightIndicator.setTypeface(android.graphics.Typeface.MONOSPACE);
+            tvLightIndicator.setVisibility(View.VISIBLE);
         } else {
-            icon = "☀️";
+            tvLightIndicator.setVisibility(View.GONE);
         }
-        tvLightIndicator.setText(icon);
-        tvLightIndicator.setVisibility(View.VISIBLE);
     }
 
     @Override

@@ -12,11 +12,6 @@ import android.view.View;
 
 /**
  * View customizada que desenha o overlay biométrico:
- *  - Oval azul com tracejado pulsante (IDLE / SCANNING)
- *  - Scan line animada (SCANNING)
- *  - Oval vermelho estático (CLOSED / ERROR)
- *  - Oval verde com checkmark (SUCCESS)
- *  - Spinner de pontos (PROCESSING)
  */
 public class BiometricOverlayView extends View {
 
@@ -157,7 +152,7 @@ public class BiometricOverlayView extends View {
         ovalPaint.setAlpha((int)(pulseAlpha * 255));
         canvas.drawOval(ovalRect, ovalPaint);
 
-        // Quatro cantos do oval (estilo biométrico)
+        // Quatro cantos do oval
         drawCornerAccents(canvas, ovalColor);
 
         // Label em baixo do oval

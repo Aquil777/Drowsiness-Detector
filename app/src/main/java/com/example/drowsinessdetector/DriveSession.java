@@ -14,24 +14,6 @@ public class DriveSession {
         public long   durationSeconds;
         public int    alertCount;
         public List<FatigueEvent> events;
-
-        public String getSummary() {
-            StringBuilder sb = new StringBuilder();
-            sb.append(String.format("📅 %s  →  %s\n⏱ %s  |  ⚠️ %d alertas\n",
-                    date,
-                    endDate != null ? endDate : "—",
-                    formatDurationStatic(durationSeconds),
-                    alertCount));
-            if (events != null) {
-                for (FatigueEvent e : events) sb.append("   ").append(e).append("\n");
-            }
-            return sb.toString();
-        }
-
-        private String formatDurationStatic(long seconds) {
-            if (seconds < 60) return seconds + "s";
-            return String.format(Locale.getDefault(), "%dm%02ds", seconds / 60, seconds % 60);
-        }
     }
 
     public static class FatigueEvent {
@@ -65,13 +47,6 @@ public class DriveSession {
 
     public int  getEventCount()     { return events.size(); }
     public long getElapsedSeconds() { return (System.currentTimeMillis() - startTime) / 1000; }
-
-    public float getAverageScore() {
-        if (events.isEmpty()) return 0f;
-        float sum = 0f;
-        for (FatigueEvent e : events) sum += e.score;
-        return sum / events.size();
-    }
 
     public SessionSnapshot toSnapshot() {
         SessionSnapshot s = new SessionSnapshot();

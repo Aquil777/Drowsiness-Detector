@@ -10,13 +10,6 @@ import android.view.View;
 
 /**
  * Ilustrações do onboarding desenhadas por código (Canvas).
- *
- * Uso no OnboardingAdapter:
- *   holder.illustration.removeAllViews();
- *   holder.illustration.addView(OnboardingIllustrations.forStep(context, position));
- *
- * O FrameLayout stepIllustration deve ter android:clipChildren="false" no XML.
- * Cada View pede wrap_content e centra-se no FrameLayout via layout_gravity="center".
  */
 public class OnboardingIllustrations {
 
@@ -30,7 +23,7 @@ public class OnboardingIllustrations {
         }
     }
 
-    // ── cores partilhadas ─────────────────────────────────────────────────────
+    // cores partilhadas
     private static final int C_SURFACE  = 0xFF0D1118;
     private static final int C_AMBER    = 0xFFC8AB5A;
     private static final int C_BLUE     = 0xFF2A7AE4;
@@ -44,9 +37,7 @@ public class OnboardingIllustrations {
     private static final int C_SCREEN   = 0xFF131A28;
     private static final int C_BG       = 0xFF080A0F;
 
-    // =========================================================================
     // PASSO 1 — Telemóvel no suporte, volante à direita
-    // =========================================================================
     static class Step1View extends View {
         private final Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
 
@@ -66,7 +57,7 @@ public class OnboardingIllustrations {
             float W = getWidth(), H = getHeight();
             float sx = W / 160f, sy = H / 140f;
 
-            // ── suporte (haste vertical) ──────────────────────────────────────
+            // suporte (haste vertical)
             p.setColor(C_BORDER); p.setStyle(Paint.Style.FILL);
             c.drawRoundRect(r(32,28,37,103,sx,sy), 2*sx, 2*sy, p);
             // braço horizontal
@@ -75,7 +66,7 @@ public class OnboardingIllustrations {
             p.setColor(C_MUTED);
             c.drawRoundRect(r(24,50,32,64,sx,sy), 2*sx, 2*sy, p);
 
-            // ── telemóvel ────────────────────────────────────────────────────
+            // telemóvel
             p.setColor(C_SURFACE);
             c.drawRoundRect(r(6,18,50,54,sx,sy), 4*sx, 4*sy, p);
             p.setColor(C_AMBER); p.setStyle(Paint.Style.STROKE); p.setStrokeWidth(1.2f*sx);
@@ -92,7 +83,7 @@ public class OnboardingIllustrations {
             c.drawOval(oval(20,27,36,41,sx,sy), p);
             p.setPathEffect(null);
 
-            // ── volante (direita) ─────────────────────────────────────────────
+            // volante (direita)
             float cx = 118*sx, cy = 85*sy, r = 30*sx;
             // aro exterior
             p.setColor(C_BORDER); p.setStyle(Paint.Style.STROKE);
@@ -115,9 +106,7 @@ public class OnboardingIllustrations {
         }
     }
 
-    // =========================================================================
     // PASSO 2 — Escuro (falsos) vs iluminado (preciso)
-    // =========================================================================
     static class Step2View extends View {
         private final Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
 
@@ -141,7 +130,7 @@ public class OnboardingIllustrations {
             c.drawLine(80*sx, 15*sy, 80*sx, 125*sy, p);
             p.setPathEffect(null);
 
-            // ── lado escuro ───────────────────────────────────────────────────
+            // lado escuro
             drawLabel(c, "ESCURO", 40*sx, 28*sy, C_MUTED, sx);
             // rosto escuro
             p.setColor(0xFF0D0F14); p.setStyle(Paint.Style.FILL);
@@ -159,7 +148,7 @@ public class OnboardingIllustrations {
             c.drawLine(36*sx,100*sy, 28*sx,108*sy, p);
             drawLabel(c, "falsos", 40*sx, 122*sy, C_RED, sx);
 
-            // ── lado iluminado ────────────────────────────────────────────────
+            // lado iluminado
             drawLabel(c, "ILUMINADO", 120*sx, 28*sy, 0xFF8A8F9E, sx);
             // raios de luz
             p.setColor(C_AMBER); p.setStyle(Paint.Style.STROKE);
@@ -189,9 +178,7 @@ public class OnboardingIllustrations {
         }
     }
 
-    // =========================================================================
     // PASSO 3 — Telemóvel com contagem + botão iniciar
-    // =========================================================================
     static class Step3View extends View {
         private final Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
 
@@ -233,9 +220,7 @@ public class OnboardingIllustrations {
         }
     }
 
-    // =========================================================================
     // PASSO 4 — Alerta de fadiga com vibração
-    // =========================================================================
     static class Step4View extends View {
         private final Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
 
@@ -274,7 +259,7 @@ public class OnboardingIllustrations {
             p.setColor(C_RED);
             c.drawRoundRect(r(57,78,95,82,sx,sy), 2*sx, 2*sy, p);
 
-            // ── vibrações ─────────────────────────────────────────────────────
+            // vibrações
             p.setStyle(Paint.Style.STROKE); p.setStrokeCap(Paint.Cap.ROUND);
             // esquerda — arco interno
             p.setColor(C_AMBER); p.setStrokeWidth(1.5f*sx);
@@ -295,10 +280,7 @@ public class OnboardingIllustrations {
         }
     }
 
-    // =========================================================================
     // Helpers
-    // =========================================================================
-
     /** RectF a partir de coordenadas SVG (x1,y1,x2,y2) escaladas. */
     private static RectF r(float x1, float y1, float x2, float y2, float sx, float sy) {
         return new RectF(x1*sx, y1*sy, x2*sx, y2*sy);

@@ -16,10 +16,6 @@ import java.util.Locale;
 
 /**
  * Mostra o detalhe completo de uma SessionSnapshot:
- *  - Header com data, duração, nº alertas, score médio
- *  - Lista completa de eventos de fadiga (hora + barra de score)
- *
- * Recebe o snapshot serializado em JSON via EXTRA_SNAPSHOT_JSON.
  */
 public class SessionDetailActivity extends AppCompatActivity {
 
@@ -30,7 +26,7 @@ public class SessionDetailActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
-        // ── deserializar snapshot ─────────────────────────────────────────────
+        // deserializar snapshot
         String json = getIntent().getStringExtra(EXTRA_SNAPSHOT_JSON);
         if (json == null) { finish(); return; }
 
@@ -38,7 +34,7 @@ public class SessionDetailActivity extends AppCompatActivity {
                 new Gson().fromJson(json, DriveSession.SessionSnapshot.class);
         if (snap == null) { finish(); return; }
 
-        // ── build UI por código (sem XML extra) ───────────────────────────────
+        // build UI por código
         ScrollView root = new ScrollView(this);
         root.setBackgroundColor(0xFF080A0F);
 
@@ -57,7 +53,7 @@ public class SessionDetailActivity extends AppCompatActivity {
             return insets;
         });
 
-        // ── cores ─────────────────────────────────────────────────────────────
+        // cores
         final int C_AMBER   = 0xFFC8AB5A;
         final int C_GREEN   = 0xFF2ECC71;
         final int C_RED     = 0xFFE53935;
@@ -82,7 +78,7 @@ public class SessionDetailActivity extends AppCompatActivity {
                 : avg < .65f ? C_AMBER
                 : C_RED;
 
-        // ── título da página ──────────────────────────────────────────────────
+        // título da página
         TextView tvTitle = new TextView(this);
         tvTitle.setText("DETALHE DA SESSÃO");
         tvTitle.setTextColor(C_TEXT);
@@ -95,7 +91,7 @@ public class SessionDetailActivity extends AppCompatActivity {
         tvTitle.setLayoutParams(titleLp);
         page.addView(tvTitle);
 
-        // ── resumo compacto (linhas de texto, sem card gigante) ───────────────
+        // resumo compacto
         LinearLayout summaryCard = new LinearLayout(this);
         summaryCard.setOrientation(LinearLayout.VERTICAL);
         summaryCard.setPadding(dp(14), dp(12), dp(14), dp(12));
@@ -126,7 +122,7 @@ public class SessionDetailActivity extends AppCompatActivity {
 
         page.addView(summaryCard);
 
-        // ── lista de eventos ──────────────────────────────────────────────────
+        // lista de eventos
         if (snap.events != null && !snap.events.isEmpty()) {
 
             TextView evTitle = new TextView(this);
@@ -159,7 +155,7 @@ public class SessionDetailActivity extends AppCompatActivity {
         }
     }
 
-    // ── linha de evento (lista densa, sem card) ──────────────────────────────
+    // linha de evento (lista densa, sem card)
     private LinearLayout buildEventRow(DriveSession.FatigueEvent ev,
                                        int timeColor, int bgColor, int trackColor) {
         int evColor = ev.score < .45f ? 0xFF2ECC71
@@ -230,7 +226,7 @@ public class SessionDetailActivity extends AppCompatActivity {
         return row;
     }
 
-    // ── linha de resumo: label à esquerda, valor à direita ──────────────────
+    // linha de resumo: label à esquerda, valor à direita
     private LinearLayout makeSummaryRow(String label, String value,
                                         int lblColor, int valColor, int dividerColor) {
         LinearLayout row = new LinearLayout(this);
@@ -275,7 +271,7 @@ public class SessionDetailActivity extends AppCompatActivity {
         return row;
     }
 
-    // ── utilitários ───────────────────────────────────────────────────────────
+    // utils
     private String formatDuration(long seconds) {
         if (seconds < 60) return seconds + "s";
         return String.format(Locale.getDefault(), "%dm%02ds", seconds / 60, seconds % 60);

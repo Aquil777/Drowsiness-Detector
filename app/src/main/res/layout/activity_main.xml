@@ -7,7 +7,7 @@
     android:layout_height="match_parent"
     android:background="#080A0F">
 
-    <!-- ═══════════════════════════════════════════════════════ CAMERA FEED -->
+    <!--  CAMERA FEED -->
     <androidx.camera.view.PreviewView
         android:id="@+id/viewFinder"
         android:layout_width="match_parent"
@@ -24,7 +24,7 @@
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintBottom_toTopOf="@id/bottomNavigation" />
 
-    <!-- ═════════════════════════════════════════════ MONITORING TAB -->
+    <!-- MONITORING TAB -->
     <androidx.constraintlayout.widget.ConstraintLayout
         android:id="@+id/layoutMonitoring"
         android:layout_width="match_parent"
@@ -76,12 +76,15 @@
                     android:paddingVertical="4dp"/>
             </LinearLayout>
 
+            <!-- Indicador de luz ambiente -->
             <TextView
                 android:id="@+id/tvLightIndicator"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="☀️"
-                android:textSize="14sp"
+                android:text=""
+                android:textSize="10sp"
+                android:fontFamily="@font/jetbrains_mono"
+                android:letterSpacing="0.08"
                 android:layout_marginStart="8dp"
                 android:visibility="gone"/>
 
@@ -290,13 +293,6 @@
                     android:paddingVertical="5dp">
 
                     <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="⚠ "
-                        android:textColor="#E53935"
-                        android:textSize="11sp"/>
-
-                    <TextView
                         android:id="@+id/tvLiveAlertCount"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
@@ -339,7 +335,7 @@
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 
-    <!-- ═════════════════════════════════════════════ SETTINGS TAB -->
+    <!--SETTINGS TAB -->
     <ScrollView
         android:id="@+id/layoutSettings"
         android:layout_width="match_parent"
@@ -535,13 +531,10 @@
                 android:gravity="center_vertical"
                 android:visibility="gone">
 
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="⚡"
-                    android:textSize="16sp"
-                    android:layout_marginEnd="10dp"/>
-
+                <!--
+                    Sem ícone — o warning_card já tem borda/cor de aviso próprias;
+                    o texto âmbar comunica o alerta sem precisar de símbolo extra.
+                -->
                 <TextView
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"

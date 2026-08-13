@@ -28,32 +28,11 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
- * FatigueClassifier — v8
- *
- * Corrige 3 divergências em relação ao treino (notebook Cell 6 / Cell 17 / Cell 33):
- *
- *  [FIX 1] Tamanho de entrada: o modelo foi treinado com IMG_SIZE = (224, 224).
- *          O app usava MODEL_INPUT_SIZE = 168. Corrigido para 224.
- *          → AppConstants.MODEL_INPUT_SIZE deve ser 224.
- *
- *  [FIX 2] O treino NÃO faz crop do rosto — passa o frame completo redimensionado
- *          directamente para o modelo (ver testar_video: cv2.resize(frame_rgb, IMG_SIZE)).
- *          O app v7 fazia um crop do rosto antes do resize. Removido.
- *
- *  [FIX 3] O treino NÃO aplica CLAHE no pipeline de inferência da função
- *          preprocessing_function (Cell 6):
- *              gray = cv2.cvtColor(img_uint8, cv2.COLOR_RGB2GRAY)
- *              eq   = _clahe.apply(gray)   ← CLAHE é aplicado aqui
- *          Confirmado: CLAHE está presente no treino. O app v7 chamava
- *          fillInputBuffer(grayPixels) sem passar pelos luts do CLAHE.
- *          Corrigido: applyClahe() é agora chamado antes de fillInputBuffer().
- *
- * Pipeline final (idêntico ao treino):
- *   1. ML Kit detecta o rosto (apenas para overlay de UI — não afecta o crop).
+ * Pipeline:
+ *   1. ML Kit detecta o rosto.
  *   2. Frame completo → resize 224×224.
  *   3. Grayscale (BT.601) → CLAHE (clipLimit=2.0, grid 8×8) → RGB sintético.
  *   4. Normalização [-1, 1].
- *   5. TFLite (modelo_fadiga.tflite) → score [0, 1].
  */
 public class FatigueClassifier {
 
@@ -69,10 +48,10 @@ public class FatigueClassifier {
     private final Interpreter interpreter;
     private final ByteBuffer  imgData;
 
-    // ML Kit (usado apenas para o overlay de UI, não afecta a inferência)
+    // ML Kit
     private final FaceDetector faceDetector;
 
-    // Executor dedicado para callbacks ML Kit — evita deadlock na cameraExecutor
+    // Executor para callbacks ML Kit — evita deadlock na cameraExecutor
     private final java.util.concurrent.ExecutorService mlKitExecutor =
             Executors.newSingleThreadExecutor();
 
@@ -82,15 +61,12 @@ public class FatigueClassifier {
 
     // Estado interno
     private float lastLuminance  = 128f;
-    private float claheClipLimit = AppConstants.DEFAULT_CLAHE_CLIP;
 
     // Últimos resultados (thread-safe via volatile)
     private volatile Bitmap lastDebugBitmap = null;
     private volatile Rect   lastFaceRect    = null;
 
-    // ─────────────────────────────────────────────────────────────────────────
     // Construtor
-    // ─────────────────────────────────────────────────────────────────────────
 
     public FatigueClassifier(Context context) throws IOException {
         Interpreter interpreter_temp = null;
@@ -135,12 +111,12 @@ public class FatigueClassifier {
 
         interpreter = interpreter_temp;
 
-        // [FIX 1] Buffer dimensionado para 224×224×3 floats
-        final int sz = AppConstants.MODEL_INPUT_SIZE; // deve ser 224
+        // Buffer dimensionado para 224×224×3
+        final int sz = AppConstants.MODEL_INPUT_SIZE;
         imgData = ByteBuffer.allocateDirect(4 * sz * sz * 3);
         imgData.order(ByteOrder.nativeOrder());
 
-        // ML Kit — usado apenas para overlay de UI
+        // ML Kit
         FaceDetectorOptions faceOptions = new FaceDetectorOptions.Builder()
                 .setPerformanceMode(FaceDetectorOptions.PERFORMANCE_MODE_FAST)
                 .setMinFaceSize(0.10f)
@@ -149,32 +125,10 @@ public class FatigueClassifier {
         faceDetector = FaceDetection.getClient(faceOptions);
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // API pública
-    // ─────────────────────────────────────────────────────────────────────────
-
-    public synchronized void setClaheClipLimit(float clip) {
-        this.claheClipLimit = Math.max(AppConstants.MIN_CLAHE_CLIP,
-                Math.min(AppConstants.MAX_CLAHE_CLIP, clip));
-    }
-
-    public synchronized float getClaheClipLimit() {
-        return claheClipLimit;
-    }
-
     public Rect   getLastFaceRect()    { return lastFaceRect;    }
     public float  getLastLuminance()   { return lastLuminance;   }
     public Bitmap getLastDebugBitmap() { return lastDebugBitmap; }
 
-    /**
-     * Análise de um frame completo da câmara.
-     *
-     * Pipeline idêntico ao treino (Cell 6 + Cell 33):
-     *   frame completo → resize 224×224 → grayscale → CLAHE → RGB → norm [-1,1]
-     *
-     * O ML Kit corre em paralelo apenas para atualizar o overlay de UI.
-     * Devolve NO_FACE se não detetar rosto (para manter o comportamento de UI existente).
-     */
     /**
      * Análise de um frame completo da câmara.
      *
@@ -186,7 +140,7 @@ public class FatigueClassifier {
      */
     public float analyzeImage(Bitmap fullFrame) {
 
-        // ── Deteção de rosto (apenas para overlay) – executa em background ──
+        // ── Deteção de rosto
         InputImage inputImage = InputImage.fromBitmap(fullFrame, 0);
         faceDetector.process(inputImage)
                 .addOnSuccessListener(mlKitExecutor, (List<Face> faces) -> {
@@ -206,7 +160,7 @@ public class FatigueClassifier {
                     lastFaceRect = null;
                 });
 
-        // ── Pipeline de inferência (igual ao treino) ─────────────────────────
+        // Pipeline de inferência
         final int sz = AppConstants.MODEL_INPUT_SIZE; // 224
         Bitmap resized = Bitmap.createScaledBitmap(fullFrame, sz, sz, true);
 
@@ -214,10 +168,7 @@ public class FatigueClassifier {
         int[] grayPixels = toGrayscalePixels(resized, sz);
         lastLuminance = computeMeanLuminance(grayPixels);
 
-        float currentClip;
-        synchronized (this) { currentClip = claheClipLimit; }
-
-        int[] clahePixels = applyClahe(grayPixels, sz, sz, CLAHE_GRID, currentClip);
+        int[] clahePixels = applyClahe(grayPixels, sz, sz, CLAHE_GRID, AppConstants.DEFAULT_CLAHE_CLIP);
         lastDebugBitmap = grayscalePixelsToBitmap(clahePixels, sz);
 
         // Normalização [-1, 1] e preenchimento do buffer
@@ -236,11 +187,8 @@ public class FatigueClassifier {
 
     // ─────────────────────────────────────────────────────────────────────────
     // Pipeline de imagem
-    // ─────────────────────────────────────────────────────────────────────────
-
     /**
-     * Grayscale BT.601 — idêntico a cv2.cvtColor(img, CV_RGB2GRAY).
-     * (OpenCV usa os mesmos coeficientes 0.299 / 0.587 / 0.114)
+     * Grayscale BT.601 — cv2.cvtColor(img, CV_RGB2GRAY).
      */
     private int[] toGrayscalePixels(Bitmap bmp, int sz) {
         int[] rgba   = new int[sz * sz];

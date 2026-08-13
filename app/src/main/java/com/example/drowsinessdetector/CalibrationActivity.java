@@ -39,18 +39,13 @@ import java.util.concurrent.Executors;
  *
  * Correções v3:
  *  - FIX PRINCIPAL: as amostras são capturadas e guardadas numa variável
- *    local atómica da fase, não comparando currentPhase depois de um delay.
- *    Isso resolve o bug de "0 amostras" quando a fase muda antes do post().
- *  - UI redesenhada: overlay biométrico com Path (oval + pontos de scan),
- *    sem emojis. Estética futurista consistente com o resto da app.
- *  - BiometricOverlayView: canvas animado com oval azul pulsante e scan line.
  */
 public class CalibrationActivity extends AppCompatActivity {
 
     private static final String TAG = "CalibrationActivity";
     public  static final int    RESULT_CALIBRATED = 100;
 
-    private static final long FRAME_INTERVAL_MS = 250L; // ligeiramente mais lento para estabilidade
+    private static final long FRAME_INTERVAL_MS = 250L;
     private static final int  PHASE_DURATION_S  = 5;
 
     // TTS utterance IDs
@@ -66,7 +61,7 @@ public class CalibrationActivity extends AppCompatActivity {
 
     private enum Phase { INTRO, OPEN_EYES, TRANSITION, CLOSED_EYES, PROCESSING, RESULT }
 
-    // ── UI ────────────────────────────────────────────────────────────────────
+    // UI
     private PreviewView         previewView;
     private BiometricOverlayView biometricOverlay;
     private TextView            tvBadge;
@@ -77,29 +72,28 @@ public class CalibrationActivity extends AppCompatActivity {
     private MaterialButton      btnAction;
     private View                overlayDim;
 
-    // ── Câmara ────────────────────────────────────────────────────────────────
+    // Câmara
     private ImageAnalysis   imageAnalysis;
     private ExecutorService cameraExecutor;
 
-    // ── Classificador ─────────────────────────────────────────────────────────
+    // Classificador
     private FatigueClassifier classifier;
 
-    // ── TTS ───────────────────────────────────────────────────────────────────
+    // TTS
     private TextToSpeech tts;
     private boolean      ttsReady = false;
 
-    // ── Estado ────────────────────────────────────────────────────────────────
-    private Phase             currentPhase  = Phase.INTRO;
+    // Estado
+    private Phase currentPhase  = Phase.INTRO;
     private final List<Float> openScores    = new ArrayList<>();
     private final List<Float> closedScores  = new ArrayList<>();
-    private final Handler     mainHandler   = new Handler(Looper.getMainLooper());
-    private int               countdownSecs = PHASE_DURATION_S;
+    private final Handler mainHandler   = new Handler(Looper.getMainLooper());
+    private int countdownSecs = PHASE_DURATION_S;
 
-    // FIX: flag que identifica qual fase está activa no momento da captura,
-    // evitando race condition quando currentPhase muda antes do post() executar.
+    // FIX: flag que identifica qual fase está activa no momento da captura
     private volatile Phase captureTargetPhase = null;
 
-    // ── Runnables ─────────────────────────────────────────────────────────────
+    // Runnables
 
     private final Runnable countdownRunnable = new Runnable() {
         @Override
@@ -121,7 +115,6 @@ public class CalibrationActivity extends AppCompatActivity {
     private final Runnable captureRunnable = new Runnable() {
         @Override
         public void run() {
-            // FIX: guarda a fase alvo localmente para evitar race condition
             final Phase target = captureTargetPhase;
             if (target == Phase.OPEN_EYES || target == Phase.CLOSED_EYES) {
                 captureFrameForPhase(target);
@@ -130,9 +123,7 @@ public class CalibrationActivity extends AppCompatActivity {
         }
     };
 
-    // =========================================================================
     // Lifecycle
-    // =========================================================================
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -161,10 +152,7 @@ public class CalibrationActivity extends AppCompatActivity {
         if (biometricOverlay != null) biometricOverlay.stopAnimation();
     }
 
-    // =========================================================================
     // Bind
-    // =========================================================================
-
     private void bindViews() {
         previewView      = findViewById(R.id.calibPreviewView);
         biometricOverlay = findViewById(R.id.calibBiometricOverlay);
@@ -177,10 +165,7 @@ public class CalibrationActivity extends AppCompatActivity {
         overlayDim       = findViewById(R.id.calibOverlayDim);
     }
 
-    // =========================================================================
     // TTS
-    // =========================================================================
-
     private void initTts() {
         tts = new TextToSpeech(this, status -> {
             if (status != TextToSpeech.SUCCESS) {
@@ -221,7 +206,7 @@ public class CalibrationActivity extends AppCompatActivity {
     private void announcePhase(Phase phase) {
         switch (phase) {
             case INTRO:
-                speak("Bem-vindo à calibração...", TTS_INTRO, false);   // não interrompe nada
+                speak("Bem-vindo à calibração...", TTS_INTRO, false);   // não interromper nada
                 break;
             case OPEN_EYES:
                 speak("Fase um de dois...", TTS_OPEN_START, false);
@@ -243,39 +228,34 @@ public class CalibrationActivity extends AppCompatActivity {
     private void onTtsDone(String id) {
         switch (id) {
             case TTS_INTRO:
-                // A introdução terminou — não fazemos nada, o utilizador pode carregar COMEÇAR.
+                // A introdução terminou
                 break;
             case TTS_OPEN_START:
                 startCountdownAndCapture();
                 break;
             case TTS_OPEN_DONE:
-                // Só transita depois de a fala "Muito bem!" terminar (mais uma pequena pausa)
+                // Só transita depois de a fala "Muito bem!" terminar
                 mainHandler.postDelayed(() -> showPhase(Phase.TRANSITION), 800);
                 break;
             case TTS_TRANSITION:
-                // A fala de transição terminou — nada automático, espera pelo botão.
+                // A fala de transição terminou — espera pelo botão.
                 break;
             case TTS_CLOSED_START:
                 startCountdownAndCapture();
                 break;
             case TTS_CLOSED_DONE:
-                // Depois de "Podes abrir os olhos..." → PROCESSING
+                // Depois de "Podes abrir os olhos..."
                 mainHandler.postDelayed(() -> showPhase(Phase.PROCESSING), 800);
                 break;
             case TTS_PROCESSING:
-                // Já tratado internamente em calculateAndSave()
                 break;
             case TTS_RESULT_OK:
             case TTS_RESULT_FAIL:
-                // Nada extra.
                 break;
         }
     }
 
-    // =========================================================================
     // Classificador
-    // =========================================================================
-
     private void initClassifier() {
         try {
             classifier = new FatigueClassifier(this);
@@ -289,10 +269,7 @@ public class CalibrationActivity extends AppCompatActivity {
         }
     }
 
-    // =========================================================================
     // Câmara
-    // =========================================================================
-
     private void requestCameraPermission() {
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
                 == PackageManager.PERMISSION_GRANTED) {
@@ -334,10 +311,7 @@ public class CalibrationActivity extends AppCompatActivity {
         }, ContextCompat.getMainExecutor(this));
     }
 
-    // =========================================================================
     // Máquina de estados
-    // =========================================================================
-
     private void showPhase(Phase phase) {
         currentPhase = phase;
         // Para capturas da fase anterior
@@ -448,7 +422,7 @@ public class CalibrationActivity extends AppCompatActivity {
     private void onActionButton() {
         switch (currentPhase) {
             case INTRO:
-                if (ttsReady) tts.stop();   // pára a fala atual (introdução)
+                if (ttsReady) tts.stop();   // pára a fala de introdução
                 showPhase(Phase.OPEN_EYES);
                 break;
             case TRANSITION:
@@ -476,30 +450,20 @@ public class CalibrationActivity extends AppCompatActivity {
 
         switch (currentPhase) {
             case OPEN_EYES:
-                // Fala de conclusão (sem interromper nada, apenas enfileira)
+                // Fala de conclusão
                 speak("Muito bem! Descansa os olhos.", TTS_OPEN_DONE, false);
-                // A transição para TRANSITION será feita em onTtsDone
                 break;
             case CLOSED_EYES:
                 speak("Podes abrir os olhos. Segunda fase concluída!", TTS_CLOSED_DONE, false);
-                // A transição para PROCESSING será feita em onTtsDone
                 break;
         }
     }
 
-    // =========================================================================
     // Captura de frames — FIX PRINCIPAL
-    // =========================================================================
-
-    /**
-     * FIX v3: recebe a fase como parâmetro em vez de ler currentPhase no callback.
-     * Isso elimina a race condition onde currentPhase já mudou quando o
-     * executor chama de volta na main thread.
-     */
     private void captureFrameForPhase(final Phase targetPhase) {
         if (previewView == null) return;
 
-        // getBitmap() tem de correr na main thread (já estamos nela)
+        // getBitmap() tem de correr na main thread
         android.graphics.Bitmap bitmap = previewView.getBitmap();
         if (bitmap == null) {
             Log.d(TAG, "getBitmap() retornou null — preview ainda não activo");
@@ -511,7 +475,6 @@ public class CalibrationActivity extends AppCompatActivity {
             if (classifier == null) return;
             float score = classifier.analyzeImage(bitmap);
 
-            // FIX: volta à main thread e usa targetPhase (imutável) em vez de currentPhase
             mainHandler.post(() -> {
                 // Só adiciona se a fase alvo ainda estiver activa
                 if (captureTargetPhase != targetPhase) return;
@@ -538,10 +501,7 @@ public class CalibrationActivity extends AppCompatActivity {
         });
     }
 
-    // =========================================================================
     // Cálculo do threshold
-    // =========================================================================
-
     private void calculateAndSave() {
         mainHandler.postDelayed(() -> {
             float mediaAbertos  = average(openScores,  0f);
@@ -635,10 +595,7 @@ public class CalibrationActivity extends AppCompatActivity {
         }
     }
 
-    // =========================================================================
     // Auxiliares
-    // =========================================================================
-
     private float average(List<Float> list, float fallback) {
         if (list.isEmpty()) return fallback;
         float sum = 0f;

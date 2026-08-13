@@ -7,33 +7,17 @@ import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
 import android.util.Log;
 
-/**
- * ThresholdManager
- *
- * Combina o threshold pessoal guardado (calibração) com um offset
- * dinâmico baseado na luminosidade ambiente (sensor TYPE_LIGHT).
- *
- * Política de offsets:
- *   lux > 20          → +0.00  (dia / interior bem iluminado)
- *   5 ≤ lux ≤ 20      → +0.06  (penumbra)
- *   lux < 5           → +0.12  (escuridão)
- *
- * Chamar register() em onResume() e unregister() em onPause().
- */
 public class ThresholdManager implements SensorEventListener {
 
     private static final String TAG = "ThresholdManager";
 
     // Offsets de luminosidade
     private static final float OFFSET_DARK   = 0.12f;   // lux < 5
-    private static final float OFFSET_DIM    = 0.06f;   // 5 ≤ lux ≤ 20
     private static final float OFFSET_BRIGHT = 0.00f;   // lux > 20
 
     // Limiares de lux
     private static final float LUX_DARK_LIMIT = 5f;
     private static final float LUX_DIM_LIMIT  = 20f;
-
-    // Threshold máximo permitido (evita falsos negativos em escuridão total)
     private static final float MAX_THRESHOLD  = 0.80f;
 
     private final Context       context;
@@ -41,14 +25,6 @@ public class ThresholdManager implements SensorEventListener {
     private final Sensor        lightSensor;
 
     private volatile float currentLux = 100f;  // assume dia até o sensor responder
-
-    /**
-     * Permite atualizar o lux a partir de uma fonte externa (ex.: câmara).
-     * Usado como fallback quando o sensor de hardware não está disponível.
-     */
-    public void setCurrentLux(float lux) {
-        this.currentLux = lux;
-    }
 
     public ThresholdManager(Context context) {
         this.context       = context.getApplicationContext();
@@ -62,9 +38,7 @@ public class ThresholdManager implements SensorEventListener {
         Log.d(TAG, "Sensor de luz disponível: " + (lightSensor != null));
     }
 
-    // =========================================================================
     // API pública
-    // =========================================================================
 
     /**
      * Threshold efectivo = threshold pessoal + offset de luminosidade.
@@ -116,10 +90,7 @@ public class ThresholdManager implements SensorEventListener {
         sensorManager.unregisterListener(this);
     }
 
-    // =========================================================================
     // SensorEventListener
-    // =========================================================================
-
     @Override
     public void onSensorChanged(SensorEvent event) {
         if (event.sensor.getType() == Sensor.TYPE_LIGHT) {
@@ -133,10 +104,7 @@ public class ThresholdManager implements SensorEventListener {
         // não utilizado
     }
 
-    // =========================================================================
     // Cálculo interno
-    // =========================================================================
-
     private float luxOffset(float lux) {
         if (lux >= LUX_DIM_LIMIT) return OFFSET_BRIGHT;       // 0.00
         if (lux <= LUX_DARK_LIMIT) return OFFSET_DARK;        // 0.12

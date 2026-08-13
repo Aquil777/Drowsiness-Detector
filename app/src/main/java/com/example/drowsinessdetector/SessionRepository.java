@@ -12,7 +12,6 @@ import java.util.List;
 
 /**
  * Guarda e carrega o histórico das últimas sessões em SharedPreferences (via JSON).
- * Responsabilidade única: persistência de DriveSession.
  */
 public class SessionRepository {
 
@@ -28,7 +27,7 @@ public class SessionRepository {
     }
 
     public void saveSession(DriveSession session) {
-        if (session == null || session.getEventCount() == 0) return; // Não guarda sessões vazias
+        if (session == null || session.getEventCount() == 0) return; // Não guardar sessões vazias
 
         List<DriveSession.SessionSnapshot> history = loadSnapshots();
         history.add(0, session.toSnapshot()); // Mais recente primeiro
